@@ -196,8 +196,8 @@ class Sim12Screen extends StatelessWidget {
         decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(10)),
         child: Text(
           c.smsWaiting.value
-              ? 'پیامک فرستاده شد؛ منتظر جواب پنل…'
-              : 'اینترنت در دسترس نیست — فرمان‌ها با پیامک به سیمکارت پنل می‌رود و جواب در همین صفحه نمایش داده می‌شود.${c.lastSmsAt.value.isNotEmpty ? ' آخرین جواب: ${c.lastSmsAt.value}' : ''}',
+              ? 'پیامک فرستاده شد؛ منتظر جواب پنل...'
+              : 'اینترنت در دسترس نیست؛ فرمان‌ها با پیامک به سیمکارت پنل می‌رود و جواب در همین صفحه نمایش داده می‌شود.${c.lastSmsAt.value.isNotEmpty ? ' آخرین جواب: ${c.lastSmsAt.value}' : ''}',
           style: const TextStyle(color: _amberText, fontSize: 12),
         ),
       );
@@ -456,7 +456,7 @@ class Sim12Screen extends StatelessWidget {
   String _zoneState(int z) {
     final armed = c.alarm.value != 0 && ((c.armedZones.value >> z) & 1) == 1;
     final open = ((c.openZones.value >> z) & 1) == 1;
-    if (open) return armed ? 'باز — فعال' : 'باز';
+    if (open) return armed ? 'باز (فعال)' : 'باز';
     return armed ? 'فعال' : 'عادی';
   }
 
@@ -657,11 +657,11 @@ class Sim12Screen extends StatelessWidget {
 
   // ---------- سیمکارت ----------
 
-  static const _ops = ['—', 'همراه اول', 'ایرانسل', 'رایتل'];
+  static const _ops = ['-', 'همراه اول', 'ایرانسل', 'رایتل'];
 
   Widget _simZone(BuildContext context) {
     final cr = c.credit.value;
-    final crText = c.creditBusy.value || cr == '?' ? 'در حال استعلام…' : cr == '-' || cr.isEmpty ? '—' : '${Sim12Controller.faMoney(cr)} ریال';
+    final crText = c.creditBusy.value || cr == '?' ? 'در حال استعلام...' : cr == '-' || cr.isEmpty ? '-' : '${Sim12Controller.faMoney(cr)} ریال';
     return ListView(padding: const EdgeInsets.only(bottom: 12), children: [
       _box(
         'وضعیت سیمکارت پنل',

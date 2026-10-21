@@ -305,7 +305,7 @@ class Sim12Controller extends GetxController {
       return;
     }
     smsWaiting.value = true;
-    _say('پیامک فرستاده شد؛ منتظر جواب پنل…', 'sticky');
+    _say('پیامک فرستاده شد؛ منتظر جواب پنل...', 'sticky');
     _smsTimer?.cancel();
     _smsTimer = Timer(const Duration(seconds: 90), () {
       smsWaiting.value = false;
@@ -436,7 +436,7 @@ class Sim12Controller extends GetxController {
 
   void _armWait() {
     _armTimer?.cancel();
-    _say('در حال فرستادن…', 'sticky');
+    _say('در حال فرستادن...', 'sticky');
     _armTimer = Timer(const Duration(seconds: 5), () => _say('دزدگیر جواب نداد', 'err'));
   }
 
@@ -610,7 +610,7 @@ class Sim12Event {
 
   String get text {
     final by = src < _src.length ? ' با ${_src[src]}' : '';
-    final z = zone > 0 ? ' — زون ${Sim12Controller.faNum(zone)}' : '';
+    final z = zone > 0 ? '، زون ${Sim12Controller.faNum(zone)}' : '';
     switch (type) {
       case 1:
         return 'فعال شد$by';
@@ -632,7 +632,7 @@ class Sim12Event {
 
   /// ساعت رویداد؛ روز دیگر: «دیروز» یا چند روز پیش. ساعت پنل معلوم نبوده: —
   String get when {
-    if (day == 0 && minute == 0) return '—';
+    if (day == 0 && minute == 0) return '-';
     final h = minute ~/ 60, m = minute % 60;
     final t = '${Sim12Controller.faNum(h)}:${Sim12Controller.faNum(m).padLeft(2, '۰')}';
     final ago = Sd23Controller.iranDay() - day;
