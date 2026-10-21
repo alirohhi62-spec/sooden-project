@@ -1,0 +1,33 @@
+# عکس صفحه‌های پنل سیمکارتی (برای بررسی قبل از تحویل): test/sim12_test.dart، نتیجه در شاخه‌ی shots
+name: Screens
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'lib/sim12/**'
+      - 'test/sim12_test.dart'
+permissions:
+  contents: write
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --update-goldens test/sim12_test.dart 2>&1 | tee test-log.txt
+      - name: Push the pictures to the shots branch
+        if: always()
+        run: |
+          mkdir -p /tmp/shots && cp -r test/goldens/sim12_*.png test-log.txt /tmp/shots/ 2>/dev/null || true
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git checkout --orphan shots
+          git rm -rf . -q
+          cp /tmp/shots/* . 2>/dev/null || true
+          git add -A
+          git commit -qm "screens ${GITHUB_SHA}" || true
+          git push -f origin shots

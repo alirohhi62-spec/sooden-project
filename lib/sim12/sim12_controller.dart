@@ -102,8 +102,8 @@ class Sim12Controller extends GetxController {
       forceSms.value = (GetStorage().read(_kForce) as bool?) ?? false;
     } catch (_) {}
     _smsSub = Sim12Sms.incoming.listen(_onSms, onError: (_) {});
-    _linkWorker = ever(ConnectionKeeper.instance.state, (_) => _updateLink());
-    _updateLink();
+    _linkWorker = ever(ConnectionKeeper.instance.state, (_) => updateLink());
+    updateLink();
   }
 
   @override
@@ -240,7 +240,7 @@ class Sim12Controller extends GetxController {
 
   bool get wifiUp => demo.value || ConnectionKeeper.instance.state.value == LinkState.connected;
 
-  void _updateLink() {
+  void updateLink() {
     link.value = (!forceSms.value && wifiUp) ? 'wifi' : 'sms';
   }
 
@@ -259,7 +259,7 @@ class Sim12Controller extends GetxController {
     try {
       GetStorage().write(_kForce, forceSms.value);
     } catch (_) {}
-    _updateLink();
+    updateLink();
   }
 
   void setPanelNumber(String n) {
@@ -551,7 +551,7 @@ class Sim12Controller extends GetxController {
     _sim = Sim12Simulator(_onDemoRaw);
     demo.value = true;
     Panel12Controller.instance.demo.value = true;
-    _updateLink();
+    updateLink();
     _sendWifi('@M_MDL');
   }
 
@@ -561,7 +561,7 @@ class Sim12Controller extends GetxController {
     demo.value = false;
     Panel12Controller.instance.demo.value = false;
     active.value = Panel12Controller.instance.isSim12.value;
-    _updateLink();
+    updateLink();
     if (active.value) _sendWifi('@M_MDL');
   }
 
