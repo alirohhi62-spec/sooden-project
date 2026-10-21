@@ -533,6 +533,25 @@ class Sd23Screen extends StatelessWidget {
 
   // ---------- پل‌ها ----------
 
+  /// کلیدهای یک گروه، ردیف به ردیف مثل نمایشگر بالا: [چپ، راست]؛ -1 = جای خالی (کلید آن طرف در این گروه نیست)
+  List<int> _gridOrder(List<int> keys) {
+    final rows = <List<int>>[
+      for (int i = 0; i < Sd23Controller.leftKeys.length; i++) [Sd23Controller.leftKeys[i], Sd23Controller.rightKeys[i]],
+      ...Sd23Controller.middleRows,
+    ];
+    final out = <int>[], used = <int>{};
+    for (final r in rows) {
+      final a = keys.contains(r[0]), b = keys.contains(r[1]);
+      if (!a && !b) continue;
+      out..add(a ? r[0] : -1)..add(b ? r[1] : -1);
+      used.addAll(r);
+    }
+    for (final k in keys) {
+      if (!used.contains(k)) out.add(k);
+    }
+    return out;
+  }
+
   Widget _polesZone() {
     final keys = c.keysOf(Sd23Controller.gPoles);
     return Column(children: [
@@ -560,15 +579,22 @@ class Sd23Screen extends StatelessWidget {
           ),
         ]),
       ),
+      // همان ترتیب نمایشگر بالا (چپ و راست مثل خود پنل): شبکه چپ‌به‌راست، نوشته‌ها راست‌به‌چپ
       Expanded(
-        child: GridView.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 7,
-          crossAxisSpacing: 7,
-          childAspectRatio: 2.5,
-          cacheExtent: 3000,
-          padding: EdgeInsets.zero,
-          children: [for (final k in keys) _rowKey(k)],
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: GridView.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: 7,
+            crossAxisSpacing: 7,
+            childAspectRatio: 2.5,
+            cacheExtent: 3000,
+            padding: EdgeInsets.zero,
+            children: [
+              for (final k in _gridOrder(keys))
+                k < 0 ? const SizedBox.shrink() : Directionality(textDirection: TextDirection.rtl, child: _rowKey(k)),
+            ],
+          ),
         ),
       ),
     ]);

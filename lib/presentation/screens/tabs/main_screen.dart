@@ -192,7 +192,7 @@ class _MainScreenState extends State<MainScreen> {
   /// پنل RF-12: تب سوم «مسافرت» است
   bool get _rf12Tab {
     final c = Panel12Controller.instance;
-    return c.isRf12.value || c.isSd23.value || (!c.modelKnown.value && (c.lastRf12.value || c.lastSd23.value));
+    return c.isRf12.value || c.isSd23.value || c.isSim12.value || (!c.modelKnown.value && (c.lastRf12.value || c.lastSd23.value || c.lastSim12.value));
   }
 
   void onItemTapped(int index) {

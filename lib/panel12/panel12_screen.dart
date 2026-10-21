@@ -6,6 +6,7 @@ import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import 'panel12_controller.dart';
 import 'panel12_icons.dart';
 import '../sd23/sd23_screen.dart';
+import '../sim12/sim12_screen.dart';
 
 // ---------- رنگ‌های تم تیره‌ی بلوری ----------
 const Color _bg = Color(0xFF0B0C10);
@@ -86,15 +87,18 @@ class Panel12TabHost extends StatelessWidget {
       // تا نوع پنل معلوم نشده: اگر آخرین بار پنل RF-12 بود همان صفحه‌ی پنل، وگرنه صفحه‌ی تیره (نه صفحه‌ی قدیمی)
       final known = c.modelKnown.value;
       // پنل ۲۳ کلید: صفحه‌ی مخصوص همان پنل
-      final sd = c.isSd23.value || (!known && c.lastSd23.value);
-      final showPanel = !sd && (c.isRf12.value || (!known && c.lastRf12.value));
-      final showOld = known && !c.isRf12.value && !c.isSd23.value;
+      // پنل سیمکارتی: صفحه‌ی خودش (بدون اینترنت هم با پیامک کار می‌کند، پس کم‌رنگ نمی‌شود)
+      final sim = c.isSim12.value || (!known && c.lastSim12.value);
+      final sd = !sim && (c.isSd23.value || (!known && c.lastSd23.value));
+      final showPanel = !sim && !sd && (c.isRf12.value || (!known && c.lastRf12.value));
+      final showOld = known && !c.isRf12.value && !c.isSd23.value && !c.isSim12.value;
       return Stack(fit: StackFit.expand, children: [
         Offstage(offstage: !showOld, child: home),
+        if (sim) const Sim12Screen(),
         if (sd) const Sd23Screen(),
         if (showPanel) const Panel12Screen(),
         if (showPanel || sd) const Panel12Overlay(),
-        if (!showPanel && !showOld && !sd) const ColoredBox(color: _bg),
+        if (!showPanel && !showOld && !sd && !sim) const ColoredBox(color: _bg),
       ]);
     });
   }
@@ -850,6 +854,7 @@ class Panel12DemoPage extends StatefulWidget {
             child: Text('حالت نمایشی: کدام پنل؟', style: TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w700)),
           ),
           item('پنل ۱۲ کلید (RF-12)', () => Get.to(() => const Panel12DemoPage())),
+          item('پنل ۱۲ پل سیمکارتی (دزدگیر، سیمکارت، پیامک)', () => Get.to(() => const Sim12DemoPage())),
           item('پنل ۲۳ کلید دزدگیردار ۱۴ پل', () => Get.to(() => const Sd23DemoPage(model: 'a14'))),
           item('پنل ۲۳ کلید ۲۰ پل', () => Get.to(() => const Sd23DemoPage(model: 'p20'))),
           item('پنل ۲۰ پل سفارشی (کولر، پرده، سناریو)', () => Get.to(() => const Sd23DemoPage(model: 'pc'))),

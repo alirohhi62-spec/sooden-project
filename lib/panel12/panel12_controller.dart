@@ -9,6 +9,7 @@ import '../core/eventbus/event_bus_model.dart';
 import '../core/utils/globals.dart';
 import '../data/data_sources/remote_data_sources/socket/socket.dart';
 import '../sd23/sd23_controller.dart';
+import '../sim12/sim12_controller.dart';
 import 'panel12_icons.dart';
 import 'panel12_simulator.dart';
 
@@ -141,6 +142,10 @@ class Panel12Controller extends GetxController {
   /// آخرین بار به پنل ۲۳ کلید وصل بودیم؟
   final RxBool lastSd23 = false.obs;
 
+  /// پنل ۱۲ پل سیمکارتی: صفحه‌اش را Sim12Controller می‌سازد
+  final RxBool isSim12 = false.obs;
+  final RxBool lastSim12 = false.obs;
+
   final RxList<bool> lights = List<bool>.filled(lightCount, false).obs;
   final RxInt curtainPos = 0.obs; // ۰ کاملاً باز … ۹ کاملاً بسته
   final RxString curtainState = 'S'.obs; // O در حال باز شدن، C در حال بسته شدن، S ایستاده
@@ -217,6 +222,7 @@ class Panel12Controller extends GetxController {
 
   static const String _kLastRf12 = 'panel12_last_rf12';
   static const String _kLastSd23 = 'panel12_last_sd23';
+  static const String _kLastSim12 = 'panel12_last_sim12';
 
   @override
   void onInit() {
@@ -225,6 +231,7 @@ class Panel12Controller extends GetxController {
     try {
       lastRf12.value = (GetStorage().read(_kLastRf12) as bool?) ?? false;
       lastSd23.value = (GetStorage().read(_kLastSd23) as bool?) ?? false;
+      lastSim12.value = (GetStorage().read(_kLastSim12) as bool?) ?? false;
     } catch (_) {}
     _busSub = eventBus.on<EventBusModel>().listen((e) {
       if (e.event == EventBusConst.eventSocketReconnect) reloadPanel();
@@ -246,10 +253,12 @@ class Panel12Controller extends GetxController {
     if (isRf12.value) reloadPanel();
     _modelTimer?.cancel();
     _modelTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (!isRf12.value && !isSd23.value) {
+      if (!isRf12.value && !isSd23.value && !isSim12.value) {
         modelKnown.value = true;
         _setLastRf12(false);
         _setLastSd23(false);
+        _setLastSim12(false);
+        Sim12Controller.instance.deactivate();
       }
     });
   }
@@ -308,6 +317,13 @@ class Panel12Controller extends GetxController {
     }
   }
 
+  void _setLastSim12(bool v) {
+    lastSim12.value = v;
+    try {
+      GetStorage().write(_kLastSim12, v);
+    } catch (_) {}
+  }
+
   void _setLastSd23(bool v) {
     lastSd23.value = v;
     try {
@@ -347,6 +363,7 @@ class Panel12Controller extends GetxController {
     _curtainTimer?.cancel();
     isRf12.value = false;
     isSd23.value = false;
+    isSim12.value = false;
     modelKnown.value = false;
     lights.assignAll(List<bool>.filled(lightCount, false));
     curtainPos.value = 0;
@@ -569,10 +586,29 @@ class Panel12Controller extends GetxController {
   }
 
   void _handleDollar(String m) {
+    if (m.startsWith('MDL=SIM12')) {
+      // پنل ۱۲ پل سیمکارتی: صفحه‌ی مخصوص (کلیدها، دزدگیر، پرده، سناریو، سیمکارت)
+      isRf12.value = false;
+      isSd23.value = false;
+      isSim12.value = true;
+      modelKnown.value = true;
+      _setLastRf12(false);
+      _setLastSd23(false);
+      _setLastSim12(true);
+      Sim12Controller.instance.activate(m.substring(4));
+      return;
+    }
+    if (isSim12.value && !m.startsWith('MDL=')) {
+      Sim12Controller.instance.handle(m);
+      return;
+    }
     if (m.startsWith('MDL=SD23')) {
       // پنل ۲۳ کلید: صفحه‌ی مخصوص همین پنل (چیدمان، دزدگیر و متن کلیدها را خود پنل می‌فرستد)
       isRf12.value = false;
       isSd23.value = true;
+      isSim12.value = false;
+      _setLastSim12(false);
+      Sim12Controller.instance.deactivate();
       modelKnown.value = true;
       _setLastRf12(false);
       _setLastSd23(true);
@@ -586,6 +622,9 @@ class Panel12Controller extends GetxController {
     if (m.startsWith('MDL=')) {
       isSd23.value = false;
       _setLastSd23(false);
+      isSim12.value = false;
+      _setLastSim12(false);
+      Sim12Controller.instance.deactivate();
       final rf = m.startsWith('MDL=RF12');
       final first = rf && !isRf12.value;
       isRf12.value = rf;

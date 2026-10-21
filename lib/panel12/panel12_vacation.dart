@@ -1,3 +1,4 @@
+import '../sim12/sim12_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -25,16 +26,18 @@ class Panel12VacationTabHost extends StatelessWidget {
     return Obx(() {
       final c = Panel12Controller.instance;
       final known = c.modelKnown.value;
-      final sd = c.isSd23.value || (!known && c.lastSd23.value);
-      final showNew = !sd && (c.isRf12.value || (!known && c.lastRf12.value));
-      final showOld = known && !c.isRf12.value && !c.isSd23.value;
+      final sim = c.isSim12.value || (!known && c.lastSim12.value);
+      final sd = !sim && (c.isSd23.value || (!known && c.lastSd23.value));
+      final showNew = !sim && !sd && (c.isRf12.value || (!known && c.lastRf12.value));
+      final showOld = known && !c.isRf12.value && !c.isSd23.value && !c.isSim12.value;
       return Stack(fit: StackFit.expand, children: [
         Offstage(offstage: !showOld, child: home),
+        if (sim) const Sim12ElsewherePage(),
         if (sd) const Sd23OwnOnly(what: 'برنامه‌ی مسافرت', child: Sd23VacationPage()),
         if (sd) const Panel12Overlay(),
         if (showNew) const Panel12VacationScreen(),
         if (showNew) const Panel12Overlay(),
-        if (!showNew && !showOld && !sd) const ColoredBox(color: _bg),
+        if (!showNew && !showOld && !sd && !sim) const ColoredBox(color: _bg),
       ]);
     });
   }
