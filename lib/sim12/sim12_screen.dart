@@ -68,7 +68,7 @@ class Sim12Screen extends StatelessWidget {
         const Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('پنل سیمکارتی', style: TextStyle(color: _text, fontSize: 17, fontWeight: FontWeight.w700)),
-            Text('۱۲ پل · دزدگیر · سیمکارت', style: TextStyle(color: _muted, fontSize: 12)),
+            Text('۱۲ پل، دزدگیر، سیمکارت', style: TextStyle(color: _muted, fontSize: 12)),
           ]),
         ),
         Material(
@@ -162,13 +162,20 @@ class Sim12Screen extends StatelessWidget {
       case 1:
         return 'دزدگیر: مهلت خروج';
       case 2:
-        return c.armedZones.value == 7 || c.armedZones.value == 0 ? 'دزدگیر: فعال' : 'دزدگیر: نیمه‌فعال';
+        return 'دزدگیر: فعال${_zonesText()}';
       case 3:
         return 'دزدگیر: مهلت ورود';
       case 4:
         return 'آژیر!';
     }
     return 'دزدگیر: غیرفعال';
+  }
+
+  /// زون‌های فعال وقتی همه نیستند (پنل ممکن است فقط زون ۱ داشته باشد)
+  String _zonesText() {
+    final z = c.armedZones.value;
+    if (z == 0 || z == 7) return '';
+    return ' (زون ${[for (int i = 0; i < 3; i++) if ((z >> i) & 1 == 1) Sim12Controller.faNum(i + 1)].join('،')})';
   }
 
   Color get _alarmColor {
@@ -335,7 +342,7 @@ class Sim12Screen extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: none ? _muted : _text, fontSize: 13.5, fontWeight: FontWeight.w600)),
-                Text(k < 12 ? 'پل ${Sim12Controller.faNum(k + 1)} · ${c.kindText(k)}' : c.kindText(k),
+                Text(k < 12 ? 'پل ${Sim12Controller.faNum(k + 1)} - ${c.kindText(k)}' : c.kindText(k),
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _muted, fontSize: 10.5)),
               ]),
             ),
@@ -619,7 +626,7 @@ class Sim12Screen extends StatelessWidget {
 
   Widget _scnZone() {
     return ListView(padding: const EdgeInsets.only(bottom: 12), children: [
-      SizedBox(height: 56, child: _bigBtn('${c.nameOf(21)} — خاموش کردن همه', _red, null, () => c.press(21))),
+      SizedBox(height: 56, child: _bigBtn('${c.nameOf(21)}: خاموش کردن همه', _red, null, () => c.press(21))),
       const SizedBox(height: 10),
       GridView.count(
         crossAxisCount: 2,
@@ -639,7 +646,7 @@ class Sim12Screen extends StatelessWidget {
                 onTap: () => c.press(k),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text(c.nameOf(k), style: const TextStyle(color: _text, fontSize: 14)),
-                  Text('S${Sim12Controller.faNum(k - 14)} · ${c.kindText(k)}', style: const TextStyle(color: _muted, fontSize: 11)),
+                  Text('S${Sim12Controller.faNum(k - 14)} - ${c.kindText(k)}', style: const TextStyle(color: _muted, fontSize: 11)),
                 ]),
               ),
             ),

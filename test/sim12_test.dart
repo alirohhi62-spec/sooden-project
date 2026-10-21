@@ -27,7 +27,10 @@ void main() {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+    final m = tester.binding.defaultBinaryMessenger;
+    m.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+    m.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (call) async => '/tmp');
+    m.setMockMethodCallHandler(const MethodChannel('sooden/sms_in'), (call) async => null);
 
     final c = Panel12Controller.instance;
     final s = Sim12Controller.instance;
@@ -72,24 +75,29 @@ void main() {
       await precacheImage(const AssetImage('assets/images/sim12_panel.jpg'), tester.element(find.byType(Sim12Screen)));
     });
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_keys.png'));
 
     s.tab.value = 'alarm';
     await tester.pump();
     expect(find.text('نیمه‌فعال (انتخاب زون)'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_alarm.png'));
 
     s.tab.value = 'cur';
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_curtain.png'));
 
     s.tab.value = 'scn';
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_scn.png'));
 
     s.tab.value = 'sim';
     await tester.pump();
     expect(find.text('ایرانسل'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_sim.png'));
 
     // جواب پیامکی پنل (وقتی وای‌فای نیست)
@@ -106,7 +114,8 @@ void main() {
     expect(s.isOn(11), isTrue);
     expect(s.isOn(2), isFalse);
     expect(s.credit.value, '980000');
+    await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_sms.png'));
-    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 100));
   });
 }
