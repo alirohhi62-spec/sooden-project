@@ -7,6 +7,7 @@ import 'package:get_storage/get_storage.dart';
 import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import '../data/data_sources/remote_data_sources/socket/socket.dart';
 import '../panel12/panel12_controller.dart';
+import '../sd23/sd23_controller.dart';
 import 'sim12_simulator.dart';
 import 'sim12_sms.dart';
 
@@ -36,7 +37,7 @@ class Sim12Controller extends GetxController {
 
   static const int keyCount = 27;
   static const int protocolMajor = 1;
-  static const String defaultLay = 'LLLLLLLLLLLLLLLSSSSXCMEUWUW';
+  static const String defaultLay = 'LLLLLLLLLLLLLLLSSSSXHMEUWUW';
 
   /// آیا الان صفحه‌ی این پنل نشان داده می‌شود (پنل وصل یا آخرین پنل همین بوده)
   final RxBool active = false.obs;
@@ -148,12 +149,24 @@ class Sim12Controller extends GetxController {
         return 'پرده';
       case 'X':
         return 'خروج';
-      case 'C':
+      case 'H':
         return 'قفل کودک';
+      case 'Z':
+        return 'خواب';
+      case 'E':
+        return 'آسانسور';
+      case 'M':
+        return 'مستر';
+      case 'Q':
+        return 'گروه';
+      case 'K':
+        return 'پمپ کولر';
+      case 'F':
+        return 'کولر کند';
+      case 'G':
+        return 'کولر تند';
       case 'S':
         return 'سناریو';
-      case 'R':
-        return 'رله پرده';
       case '-':
         return 'بدون کار';
     }
@@ -185,7 +198,7 @@ class Sim12Controller extends GetxController {
   void reload() {
     _queue
       ..clear()
-      ..addAll(['@M_LAY', '@K', '@X1Z', '@M_SIM', '@M_EV'])
+      ..addAll([Sd23Controller.clockCommand(), '@M_LAY', '@K', '@X1Z', '@M_SIM', '@M_EV'])
       ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}']);
     _pump();
   }
@@ -463,7 +476,8 @@ class Sim12Controller extends GetxController {
     if (m.startsWith('LAY#')) {
       var l = m.substring(4);
       if (l.length < keyCount) l = l.padRight(keyCount, '-');
-      lay.value = l.substring(0, keyCount);
+      // پنلی که پروگرامر هنوز نقش کلیدها را ننوشته: همان چیدمان پیش‌فرض
+      lay.value = l.replaceAll('-', '').isEmpty ? defaultLay : l.substring(0, keyCount);
     } else if (m.startsWith('K#')) {
       final v = int.tryParse(m.substring(2), radix: 16);
       if (v != null) {
@@ -616,8 +630,14 @@ class Sim12Event {
 
   bool get isAlarm => type == 3 || type == 6;
 
+  /// ساعت رویداد؛ روز دیگر: «دیروز» یا چند روز پیش. ساعت پنل معلوم نبوده: —
   String get when {
+    if (day == 0 && minute == 0) return '—';
     final h = minute ~/ 60, m = minute % 60;
-    return '${Sim12Controller.faNum(h)}:${Sim12Controller.faNum(m).padLeft(2, '۰')}';
+    final t = '${Sim12Controller.faNum(h)}:${Sim12Controller.faNum(m).padLeft(2, '۰')}';
+    final ago = Sd23Controller.iranDay() - day;
+    if (ago <= 0) return t;
+    if (ago == 1) return 'دیروز $t';
+    return '${Sim12Controller.faNum(ago)} روز پیش';
   }
 }

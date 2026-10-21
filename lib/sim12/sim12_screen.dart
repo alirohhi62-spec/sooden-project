@@ -365,7 +365,7 @@ class Sim12Screen extends StatelessWidget {
         title: Text('اسم ${Sim12Controller.defaultName(k)}', style: const TextStyle(color: _text, fontSize: 15)),
         content: TextField(
           controller: t,
-          maxLength: 20,
+          maxLength: 10,
           autofocus: true,
           style: const TextStyle(color: _text),
           decoration: const InputDecoration(hintText: 'مثلاً لوستر سالن', hintStyle: TextStyle(color: _muted)),
@@ -435,7 +435,7 @@ class Sim12Screen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 5),
                     child: Row(children: [
-                      SizedBox(width: 46, child: Text(e.when, style: const TextStyle(color: _muted, fontSize: 12.5))),
+                      SizedBox(width: 92, child: Text(e.when, style: const TextStyle(color: _muted, fontSize: 12.5))),
                       Expanded(
                           child: Text(e.text,
                               style: TextStyle(color: e.isAlarm ? const Color(0xFFFF9B9B) : _text, fontSize: 13))),

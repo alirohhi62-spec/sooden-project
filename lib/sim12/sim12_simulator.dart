@@ -7,7 +7,7 @@ class Sim12Simulator {
 
   final void Function(List<int>) reply;
 
-  static const String lay = 'LLLLLLLLLLLLLLLSSSSXCMEUWUW';
+  static const String lay = 'LLLLLLLLLLLLLLLSSSSXHMEUWUW';
   int _on = 0x0009;
   int _al = 0, _zones = 0, _open = 0;
   String _code = '1234';
