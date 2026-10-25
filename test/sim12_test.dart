@@ -117,6 +117,16 @@ void main() {
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_installer.png'));
     s.setInstaller(false);
     await tester.pump(const Duration(seconds: 4));
+    s.tab.value = 'scn';
+    s.scenariosOff();
+    await tester.pump(const Duration(seconds: 1));
+    expect(s.message.value, 'سناریوها خاموش شد');
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_scnoff.png'));
+    s.tab.value = 'cur';
+    s.curtainPos.assignAll([40, 100]);
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_curtain4.png'));
     s.stopDemo();
     await tester.pump();
 

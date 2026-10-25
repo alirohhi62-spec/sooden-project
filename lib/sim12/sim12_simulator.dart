@@ -64,6 +64,11 @@ class Sim12Simulator {
       return;
     }
     if (s == '@M_POS') return _out('POS#00#00');
+    if (s == '&SOFF') {
+      _on &= ~0x0F3F;
+      _out('SOFF#1');
+      return _out(_k);
+    }
     if (s == '@M_CF#AL') return _out('CF#AL#00#00#00#${_hx(_dark, 2)}');
     if (s.startsWith('@M_CF#')) {
       final n = int.tryParse(s.substring(6)) ?? 0;

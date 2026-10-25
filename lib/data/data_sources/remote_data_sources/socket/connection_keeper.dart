@@ -36,6 +36,9 @@ class ConnectionKeeper {
   static bool Function()? holdOnLoss;
   /// کاربر در شروع «ادامه با سیمکارت» را قبول کرد: وای‌فای پشت صحنه امتحان می‌شود، صفحه‌ی خطا نمی‌آید
   static bool smsAccepted = false;
+
+  /// اتصال دوباره همین الان (صفحه‌ی اصلی آن را می‌گذارد؛ برای دکمه‌ی وای‌فای پنل سیمکارتی)
+  static void Function()? retryNow;
   static bool get holding => smsAccepted || (holdOnLoss?.call() ?? false);
 
   bool _sessionReady = false; // اتصال اولیه و دریافت تنظیمات یک بار کامل شده

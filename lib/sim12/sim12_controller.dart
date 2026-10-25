@@ -259,7 +259,7 @@ class Sim12Controller extends GetxController {
     link.value = (!forceSms.value && wifiUp) ? 'wifi' : 'sms';
     if (was == 'wifi' && link.value == 'sms' && !forceSms.value && panelNumber.value.isNotEmpty) {
       _say('وای‌فای پنل قطع شد؛ فرمان‌ها با پیامک می‌رود', 'err');
-    } else if (was == 'sms' && link.value == 'wifi' && panelNumber.value.isNotEmpty) {
+    } else if (was == 'sms' && link.value == 'wifi') {
       _say('وای‌فای پنل وصل شد', 'ok');
     }
   }
@@ -274,7 +274,19 @@ class Sim12Controller extends GetxController {
       forceSms.value = true;
     } else {
       forceSms.value = false;
-      if (!wifiUp) _say('وای‌فای پنل در دسترس نیست؛ فرمان‌ها با پیامک می‌رود', 'err');
+      if (!wifiUp) {
+        // همین الان دوباره امتحان می‌شود
+        _say('در حال اتصال به وای‌فای پنل...', 'sticky');
+        final k = ConnectionKeeper.instance;
+        if (k.hasSession) {
+          k.ensureConnected();
+        } else {
+          ConnectionKeeper.retryNow?.call();
+        }
+        Timer(const Duration(seconds: 10), () {
+          if (!wifiUp && !forceSms.value) _say('وای‌فای پنل در دسترس نیست؛ فرمان‌ها با پیامک می‌رود', 'err');
+        });
+      }
     }
     try {
       GetStorage().write(_kForce, forceSms.value);
@@ -363,6 +375,7 @@ class Sim12Controller extends GetxController {
     final now = DateTime.now();
     lastSmsAt.value = '${faNum(now.hour)}:${faNum(now.minute).padLeft(2, '۰')}';
     _say('جواب پنل با پیامک رسید', 'ok');
+    _scnDone();
   }
 
   static bool _sameNumber(String a, String b) {
@@ -377,7 +390,49 @@ class Sim12Controller extends GetxController {
   // ---------- فرمان‌ها ----------
 
   /// لمس یک کلید
+  int _scnPending = -1; // سناریویی که فرمانش رفته و منتظر جواب پنل است (۹۹ = همه خاموش)
+  final RxInt scnWaiting = (-1).obs;
+  Timer? _scnTimer;
+
+  void _scnWait(int k) {
+    _scnPending = k;
+    scnWaiting.value = k;
+    _scnTimer?.cancel();
+    _scnTimer = Timer(Duration(seconds: smsMode ? 90 : 4), () {
+      if (_scnPending == k) _say('پنل جواب نداد', 'err');
+      _scnPending = -1;
+      scnWaiting.value = -1;
+    });
+  }
+
+  void _scnDone() {
+    final k = _scnPending;
+    if (k < 0) return;
+    _scnPending = -1;
+    scnWaiting.value = -1;
+    _scnTimer?.cancel();
+    _say(k == 99 ? 'سناریوها خاموش شد' : '${nameOf(k)} اجرا شد', 'ok');
+  }
+
+  /// سناریو روشن است: پل‌هایش همان‌طورند که سناریو می‌گذارد
+  bool scenarioActive(int k) {
+    final c = cf[k];
+    if (c == null || (c.on & 0x7FFF) == 0) return false;
+    return (bits.value & c.on & 0x7FFF) == (c.on & 0x7FFF) && (bits.value & c.off & 0x7FFF) == 0;
+  }
+
+  /// خاموش کردن همه‌ی سناریوها (پل‌های S1 تا S4 خاموش، پرده‌هایشان برعکس)
+  void scenariosOff() {
+    _scnWait(99);
+    if (smsMode) {
+      _sendSms('#SOFF');
+    } else {
+      _sendWifi('&SOFF');
+    }
+  }
+
   void press(int k) {
+    if (k >= 15 && k <= 18) _scnWait(k);
     if (smsMode) {
       final cmd = _smsKey(k);
       if (cmd == null) {
@@ -493,7 +548,7 @@ class Sim12Controller extends GetxController {
     final clean = text.replaceAll(RegExp(r'[#\$!&@~\r\n%]'), '').trim();
     final n = _two(k + 1);
     _expect('L$n');
-    _sendWifi('Lbl#$n#${String.fromCharCodes(clean.runes.take(16))}#');
+    _sendWifi('Lbl#$n#${String.fromCharCodes(clean.runes.take(20))}#');
     Timer(const Duration(milliseconds: 600), () => _sendWifi('@M_LBL#$n'));
   }
 
@@ -637,7 +692,7 @@ class Sim12Controller extends GetxController {
 
   void _expect(String key) {
     _writeTimers.remove(key)?.cancel();
-    _say('در حال ذخیره روی پنل…', 'sticky');
+    _say('در حال ذخیره روی پنل...', 'sticky');
     _writeTimers[key] = Timer(const Duration(seconds: 4), () {
       if (_writeTimers.remove(key) != null) _say('پنل جواب نداد؛ ذخیره نشد', 'err');
     });
@@ -672,13 +727,25 @@ class Sim12Controller extends GetxController {
     } else if (m.startsWith('A#') && m.length >= 6) {
       final k = (int.tryParse(m.substring(2, 4)) ?? 0) - 1;
       _done(k);
-      if (m.endsWith('#0')) _say('پنل این فرمان را الان قبول نکرد (قفل یا سناریو در حال اجرا)', 'err');
+      if (m.endsWith('#0')) {
+        if (k == _scnPending) _scnPending = -1;
+        _say('پنل این فرمان را الان قبول نکرد (قفل یا سناریو در حال اجرا)', 'err');
+      } else if (k == _scnPending) {
+        _scnDone();
+      }
     } else if (m.startsWith('L') && m.length > 3 && m[3] == '#') {
       final k = (int.tryParse(m.substring(1, 3)) ?? 0) - 1;
       final t = m.indexOf('~');
       if (k >= 0 && k < keyCount) {
         labels[k] = t >= 0 ? m.substring(t + 1) : m.substring(4);
         _got('L${_two(k + 1)}', true);
+      }
+    } else if (m.startsWith('SOFF#')) {
+      if (m == 'SOFF#1') {
+        _scnDone();
+      } else {
+        _scnPending = -1;
+        _say('پنل الان فرمان نگرفت؛ کمی بعد دوباره بزن', 'err');
       }
     } else if (m.startsWith('POS#')) {
       _onPos(m);

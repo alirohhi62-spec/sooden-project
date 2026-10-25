@@ -316,6 +316,9 @@ class HomeLogic extends BaseLogic {
       isSocketConnecting.value = false;
       Sim12Start.ask(onYes: () {
         ConnectionKeeper.smsAccepted = true;
+        ConnectionKeeper.retryNow = () {
+          if (!isClosed && ConnectionKeeper.instance.state.value != LinkState.connected) _establishConnection();
+        };
         _retryWifiLater();
       }, onNo: () => Get.off(() => NotFoundScreen(errorCode: errorCode), binding: AppBindings()));
       return;

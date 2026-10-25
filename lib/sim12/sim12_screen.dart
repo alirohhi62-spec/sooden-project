@@ -50,6 +50,7 @@ class Sim12Screen extends StatelessWidget {
             c.cf.length;
             c.cf.values.toList();
             c.curtainPos.toList();
+            c.scnWaiting.value;
             return Column(children: [
               _header(),
               if (c.installer.value) _installerBar(context),
@@ -419,7 +420,7 @@ class Sim12Screen extends StatelessWidget {
               const SizedBox(height: 12),
               TextField(
                 controller: name,
-                maxLength: 16,
+                maxLength: 20,
                 style: const TextStyle(color: _text),
                 decoration: const InputDecoration(labelText: 'اسم کلید', hintText: 'مثلاً لوستر سالن'),
               ),
@@ -792,24 +793,90 @@ class Sim12Screen extends StatelessWidget {
     );
   }
 
-  /// پنجره با دو لنگه‌ی پرده: باز بودن = فاصله‌ی دو لنگه
+  /// پنجره با حریر و دو لنگه‌ی پرده‌ی ضخیم روی میله با حلقه (نمونه‌ی ۴): باز بودن = کنار رفتن لنگه‌ها
   Widget _curtainPic(double pct) => SizedBox(
-        height: 70,
+        height: 96,
         child: LayoutBuilder(builder: (context, b) {
           final half = b.maxWidth / 2;
           final w = (half * (1 - pct / 100 * .85)).clamp(half * .15, half);
-          Widget leaf() => Container(
+          const fold = LinearGradient(
+            colors: [Color(0xFF2F3D57), Color(0xFF455A80), Color(0xFF5B74A3), Color(0xFF455A80), Color(0xFF2F3D57)],
+            stops: [0, .36, .5, .64, 1],
+            tileMode: TileMode.repeated,
+          );
+          // تعداد چین‌ها ثابت می‌ماند: لنگه‌ی جمع‌شده چین‌های تنگ‌تر دارد
+          Widget leaf(bool left) => Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  gradient: const LinearGradient(colors: [Color(0xFF8C6A4A), Color(0xFFB08A63), Color(0xFF8C6A4A), Color(0xFFB08A63)]),
+                  gradient: LinearGradient(
+                    colors: fold.colors,
+                    stops: fold.stops,
+                    tileMode: TileMode.repeated,
+                    begin: Alignment.centerLeft,
+                    end: Alignment(-1 + 2 / 7, 0),
+                  ),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .45), blurRadius: 8, offset: Offset(left ? 2 : -2, 0))],
+                ),
+                foregroundDecoration: const BoxDecoration(
+                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x00000000), Color(0x33000000)]),
+                ),
+              );
+          Widget ring(double x, bool left) => AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                top: 1,
+                left: left ? x : null,
+                right: left ? null : x,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFAAAAAA), width: 2)),
                 ),
               );
           return Container(
-            decoration: BoxDecoration(color: const Color(0xFF1F3347), borderRadius: BorderRadius.circular(8), border: Border.all(color: _line)),
-            child: Stack(children: [
-              AnimatedPositioned(duration: const Duration(milliseconds: 220), left: 0, top: 0, bottom: 0, width: w, child: leaf()),
-              AnimatedPositioned(duration: const Duration(milliseconds: 220), right: 0, top: 0, bottom: 0, width: w, child: leaf()),
-            ]),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF5B5E66), width: 5),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF7FB2E0), Color(0xFFCFE6F7), Color(0xFF9CC48A), Color(0xFF6F9A5E)],
+                stops: [0, .6, .61, 1],
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: Stack(children: [
+                Positioned(left: half - 7, top: 0, bottom: 0, width: 4, child: Container(color: const Color(0xFF5B5E66))),
+                // حریر
+                Positioned.fill(
+                  top: 8,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0x55FFFFFF), Color(0x88FFFFFF), Color(0x44FFFFFF)],
+                        tileMode: TileMode.repeated,
+                        end: Alignment(-0.93, 0),
+                        begin: Alignment.centerLeft,
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedPositioned(duration: const Duration(milliseconds: 220), left: 0, top: 8, bottom: 0, width: w, child: leaf(true)),
+                AnimatedPositioned(duration: const Duration(milliseconds: 220), right: 0, top: 8, bottom: 0, width: w, child: leaf(false)),
+                // میله
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: 8,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFC9C9C9), Color(0xFF777777)])),
+                  ),
+                ),
+                for (int j = 0; j < 4; j++) ring(j / 4 * w, true),
+                for (int j = 0; j < 4; j++) ring(j / 4 * w, false),
+              ]),
+            ),
           );
         }),
       );
@@ -830,16 +897,30 @@ class Sim12Screen extends StatelessWidget {
         children: [
           for (int k = 15; k < 21; k++)
             Material(
-              color: c.isOn(k) ? _redBg : _card,
+              color: c.isOn(k) || c.scenarioActive(k) ? _redBg : _card,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.isOn(k) ? _red : _line)),
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: c.isOn(k) || c.scenarioActive(k) ? _red : c.scnWaiting.value == k ? _amber : _line)),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
                 onTap: () { if (c.installer.value) { _editKey(k); } else { c.press(k); } },
                 // نگه داشتن: S1 تا S4 پل‌های سناریو، S5 زمان خروج
                 onLongPress: k <= 18 ? () => _editScenario(k) : k == 19 ? () => _editExitTime(k) : null,
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(c.nameOf(k), style: const TextStyle(color: _text, fontSize: 14)),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(c.nameOf(k), style: const TextStyle(color: _text, fontSize: 14)),
+                    if (c.scnWaiting.value == k) ...[
+                      const SizedBox(width: 6),
+                      const SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.5, color: _amber)),
+                    ] else if (k <= 18 && c.scenarioActive(k)) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(color: _red, borderRadius: BorderRadius.circular(8)),
+                        child: const Text('فعال', style: TextStyle(color: Colors.white, fontSize: 10)),
+                      ),
+                    ],
+                  ]),
                   Text(
                       k == 19 && c.cf[19] != null
                           ? 'S۵ - خروج، ${_dur(c.cf[19]!.seconds)}'
@@ -850,8 +931,16 @@ class Sim12Screen extends StatelessWidget {
             ),
         ],
       ),
+      const SizedBox(height: 10),
+      _scnOffBtn(),
     ]);
   }
+
+  Widget _scnOffBtn() => SizedBox(
+        height: 56,
+        child: _bigBtn(c.scnWaiting.value == 99 ? 'در حال خاموش کردن سناریوها...' : 'خاموش کردن همه سناریوها', _key, _red,
+            () { if (c.scnWaiting.value != 99) c.scenariosOff(); }),
+      );
 
   String get _masterText => '${c.nameOf(21)}: ${c.masterTurnsOff ? 'خاموش کردن همه' : 'روشن کردن همه'}';
 
