@@ -46,6 +46,9 @@ class Sim12Screen extends StatelessWidget {
             c.bits.value;
             c.link.value;
             c.installer.value;
+            c.cf.length;
+            c.cf.values.toList();
+            c.curtainPos.toList();
             return Column(children: [
               _header(),
               if (c.installer.value) _installerBar(context),
@@ -287,8 +290,8 @@ class Sim12Screen extends StatelessWidget {
         Expanded(
             child: Text('${Sim12Controller.faNum(c.polesOn)} روشن', style: const TextStyle(color: _muted, fontSize: 12))),
         TextButton(
-          onPressed: c.polesOn == 0 ? null : c.allOff,
-          child: const Text('خاموش کردن همه (مستر)', style: TextStyle(fontSize: 12)),
+          onPressed: c.allOff,
+          child: Text(_masterText, style: const TextStyle(fontSize: 12)),
         ),
       ]),
       for (int o = 0; o < 3; o++)
@@ -767,8 +770,11 @@ class Sim12Screen extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Expanded(child: Text(name, style: const TextStyle(color: _text, fontSize: 14, fontWeight: FontWeight.w600))),
-          Text(st, style: TextStyle(color: c.isOn(ko) || c.isOn(kc) ? _redLit : _muted, fontSize: 12)),
+          Text('$st - ${Sim12Controller.faNum(c.curtainPos[i].round())}٪ باز',
+              style: TextStyle(color: c.isOn(ko) || c.isOn(kc) ? _redLit : _muted, fontSize: 12)),
         ]),
+        const SizedBox(height: 8),
+        _curtainPic(c.curtainPos[i]),
         const SizedBox(height: 8),
         // مثل پنل: پیکان چپ = باز، پیکان راست = بسته
         Directionality(
@@ -785,11 +791,33 @@ class Sim12Screen extends StatelessWidget {
     );
   }
 
+  /// پنجره با دو لنگه‌ی پرده: باز بودن = فاصله‌ی دو لنگه
+  Widget _curtainPic(double pct) => SizedBox(
+        height: 70,
+        child: LayoutBuilder(builder: (context, b) {
+          final half = b.maxWidth / 2;
+          final w = (half * (1 - pct / 100 * .85)).clamp(half * .15, half);
+          Widget leaf() => Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  gradient: const LinearGradient(colors: [Color(0xFF8C6A4A), Color(0xFFB08A63), Color(0xFF8C6A4A), Color(0xFFB08A63)]),
+                ),
+              );
+          return Container(
+            decoration: BoxDecoration(color: const Color(0xFF1F3347), borderRadius: BorderRadius.circular(8), border: Border.all(color: _line)),
+            child: Stack(children: [
+              AnimatedPositioned(duration: const Duration(milliseconds: 220), left: 0, top: 0, bottom: 0, width: w, child: leaf()),
+              AnimatedPositioned(duration: const Duration(milliseconds: 220), right: 0, top: 0, bottom: 0, width: w, child: leaf()),
+            ]),
+          );
+        }),
+      );
+
   // ---------- سناریو ----------
 
   Widget _scnZone() {
     return ListView(padding: const EdgeInsets.only(bottom: 12), children: [
-      SizedBox(height: 56, child: _bigBtn('${c.nameOf(21)}: خاموش کردن همه', _red, null, () { if (c.installer.value) { _editKey(21); } else { c.press(21); } })),
+      SizedBox(height: 56, child: _bigBtn(_masterText, _red, null, () { if (c.installer.value) { _editKey(21); } else { c.press(21); } })),
       const SizedBox(height: 10),
       GridView.count(
         crossAxisCount: 2,
@@ -807,15 +835,153 @@ class Sim12Screen extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
                 onTap: () { if (c.installer.value) { _editKey(k); } else { c.press(k); } },
+                // نگه داشتن: S1 تا S4 پل‌های سناریو، S5 زمان خروج
+                onLongPress: k <= 18 ? () => _editScenario(k) : k == 19 ? () => _editExitTime(k) : null,
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text(c.nameOf(k), style: const TextStyle(color: _text, fontSize: 14)),
-                  Text('S${Sim12Controller.faNum(k - 14)} - ${c.kindText(k)}', style: const TextStyle(color: _muted, fontSize: 11)),
+                  Text(
+                      k == 19 && c.cf[19] != null
+                          ? 'S۵ - خروج، ${_dur(c.cf[19]!.seconds)}'
+                          : 'S${Sim12Controller.faNum(k - 14)} - ${c.kindText(k)}${k <= 18 ? ' (نگه دار: ویرایش)' : ''}',
+                      style: const TextStyle(color: _muted, fontSize: 11)),
                 ]),
               ),
             ),
         ],
       ),
     ]);
+  }
+
+  String get _masterText => '${c.nameOf(21)}: ${c.masterTurnsOff ? 'خاموش کردن همه' : 'روشن کردن همه'}';
+
+  static String _dur(int sec) {
+    if (sec < 60) return '${Sim12Controller.faNum(sec)} ثانیه';
+    final m = sec ~/ 60, r = sec % 60;
+    return r == 0 ? '${Sim12Controller.faNum(m)} دقیقه' : '${Sim12Controller.faNum(m)} دقیقه و ${Sim12Controller.faNum(r)} ثانیه';
+  }
+
+  /// پل‌های یک سناریو: هر پل روشن / خاموش / بدون تغییر
+  void _editScenario(int k) {
+    if (c.smsMode) {
+      c.saveScenario(k, 0, 0); // فقط پیام «با وای‌فای»
+      return;
+    }
+    final cf = c.cf[k];
+    if (cf == null) {
+      Get.snackbar('صبر کن', 'تنظیمات سناریو هنوز از پنل نرسیده', colorText: _text);
+      return;
+    }
+    final group = cf.type == 15;
+    if (cf.type != 14 && !group) {
+      Get.snackbar('این سناریو ثابت است', 'پل‌های این سناریو فقط با پروگرمر عوض می‌شود', colorText: _text);
+      return;
+    }
+    // ۰ بدون تغییر، ۱ روشن، ۲ خاموش
+    final st = [for (int j = 0; j < 15; j++) (cf.on >> j) & 1 == 1 ? 1 : (!group && (cf.off >> j) & 1 == 1) ? 2 : 0];
+    Get.bottomSheet(
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: StatefulBuilder(builder: (context, setState) {
+          Widget opt(int j, int v, String t, Color col) => Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => st[j] = v),
+                  child: Container(
+                    height: 32,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: st[j] == v ? col : _key,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: st[j] == v ? col : _line),
+                    ),
+                    child: Text(t, style: const TextStyle(color: _text, fontSize: 12)),
+                  ),
+                ),
+              );
+          return Container(
+            padding: const EdgeInsets.all(16),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * .85),
+            decoration: const BoxDecoration(color: Color(0xFF14151A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('پل‌های ${c.nameOf(k)}', style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w700)),
+              Text(group ? 'گروه: با زدن سناریو پل‌های انتخاب‌شده با هم روشن یا خاموش می‌شوند' : 'با زدن سناریو: روشن‌ها روشن و خاموش‌ها خاموش می‌شوند',
+                  style: const TextStyle(color: _muted, fontSize: 12)),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView(shrinkWrap: true, children: [
+                  for (int j = 0; j < 15; j++)
+                    if (c.kindOf(j) != '-')
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(children: [
+                          Expanded(flex: 4, child: Text(c.nameOf(j), style: const TextStyle(color: _text, fontSize: 13))),
+                          Expanded(
+                            flex: 6,
+                            child: Row(children: [
+                              opt(j, 1, 'روشن', _red),
+                              if (!group) opt(j, 2, 'خاموش', const Color(0xFF55575F)),
+                              opt(j, 0, 'بدون تغییر', const Color(0xFF3A3B42)),
+                            ]),
+                          ),
+                        ]),
+                      ),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: _red, foregroundColor: Colors.white),
+                onPressed: () {
+                  int on = 0, off = 0;
+                  for (int j = 0; j < 15; j++) {
+                    if (st[j] == 1) on |= 1 << j;
+                    if (st[j] == 2) off |= 1 << j;
+                  }
+                  c.saveScenario(k, on, off);
+                  Get.back();
+                },
+                child: const Text('ذخیره روی پنل'),
+              ),
+            ]),
+          );
+        }),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  /// زمان سناریوی خروج
+  void _editExitTime(int k) {
+    final cf = c.cf[k];
+    if (c.smsMode || cf == null) {
+      Get.snackbar('فقط با وای‌فای', 'زمان خروج با وای‌فای عوض می‌شود', colorText: _text);
+      return;
+    }
+    final t = TextEditingController(text: '${cf.seconds}');
+    Get.dialog(Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        backgroundColor: _card,
+        title: Text('زمان ${c.nameOf(k)}', style: const TextStyle(color: _text, fontSize: 15)),
+        content: TextField(
+          controller: t,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: _text),
+          decoration: const InputDecoration(suffixText: 'ثانیه', helperText: '۰ تا ۶۵۵۳۵ (از ۶۰ ثانیه به بالا با لمس لغو می‌شود)'),
+        ),
+        actions: [
+          TextButton(onPressed: Get.back, child: const Text('انصراف')),
+          TextButton(
+              onPressed: () {
+                final v = int.tryParse(t.text.trim());
+                if (v == null || v < 0 || v > 65535) return;
+                c.saveTime(k, 'T', v);
+                Get.back();
+              },
+              child: const Text('ذخیره')),
+        ],
+      ),
+    ));
   }
 
   // ---------- سیمکارت ----------

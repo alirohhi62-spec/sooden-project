@@ -34,7 +34,9 @@ class ConnectionKeeper {
   /// پنل سیمکارتی: وقتی true بدهد، قطع وای‌فای به صفحه‌ی «دستگاه پیدا نشد» نمی‌رود
   /// (صفحه می‌ماند و فرمان‌ها با پیامک می‌رود) و اتصال پشت صحنه دوباره امتحان می‌شود
   static bool Function()? holdOnLoss;
-  static bool get holding => holdOnLoss?.call() ?? false;
+  /// کاربر در شروع «ادامه با سیمکارت» را قبول کرد: وای‌فای پشت صحنه امتحان می‌شود، صفحه‌ی خطا نمی‌آید
+  static bool smsAccepted = false;
+  static bool get holding => smsAccepted || (holdOnLoss?.call() ?? false);
 
   bool _sessionReady = false; // اتصال اولیه و دریافت تنظیمات یک بار کامل شده
   bool _inForeground = true;

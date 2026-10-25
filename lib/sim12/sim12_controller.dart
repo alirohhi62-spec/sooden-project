@@ -109,6 +109,10 @@ class Sim12Controller extends GetxController {
       forceSms.value = (GetStorage().read(_kForce) as bool?) ?? false;
     } catch (_) {}
     _smsSub = Sim12Sms.incoming.listen(_onSms, onError: (_) {});
+    try {
+      final cp = GetStorage().read('sim12_curtain_pos');
+      if (cp is List && cp.length == 2) curtainPos.assignAll([for (final x in cp) (x as num).toDouble()]);
+    } catch (_) {}
     _linkWorker = ever(ConnectionKeeper.instance.state, (_) => updateLink());
     updateLink();
   }
@@ -206,7 +210,9 @@ class Sim12Controller extends GetxController {
     _queue
       ..clear()
       ..addAll([Sd23Controller.clockCommand(), '@M_LAY', '@K', '@X1Z', '@M_SIM', '@M_EV'])
-      ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}']);
+      ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
+      // سناریوها (پل‌ها و زمان خروج)، مستر و پرده‌ها (زمان حرکت برای درصد)
+      ..addAll([for (final n in [16, 17, 18, 19, 20, 22, 24, 25, 26, 27]) '@M_CF#${_two(n)}']);
     _pump();
   }
 
@@ -490,6 +496,69 @@ class Sim12Controller extends GetxController {
     Timer(const Duration(milliseconds: 600), () => _sendWifi('@M_LBL#$n'));
   }
 
+  /// مستر: اگر همه‌ی پل‌های مستر روشن‌اند خاموش می‌کند، وگرنه همه را روشن می‌کند (مثل خود پنل)
+  bool get masterTurnsOff {
+    final m = cf[21]?.on ?? 0;
+    final mask = m != 0 ? m : 0x7FFF;
+    for (int k = 0; k < 15; k++) {
+      if ((mask >> k) & 1 == 1 && kindOf(k) != '-' && !isOn(k)) return false;
+    }
+    return polesOn > 0;
+  }
+
+  /// پل‌های یک سناریو: روشن‌ها و خاموش‌ها (پل ۱ تا ۱۵)
+  void saveScenario(int k, int on, int off) {
+    if (smsMode) {
+      _say('تغییر سناریو فقط با وای‌فای', 'err');
+      return;
+    }
+    final n = _two(k + 1);
+    String h(int v) => v.toRadixString(16).toUpperCase().padLeft(6, '0');
+    _expect('C$n');
+    _sendWifi('Set#$n#O#${h(on)}#');
+    if ((cf[k]?.type ?? 14) != 15) Timer(const Duration(milliseconds: 350), () => _sendWifi('Set#$n#F#${h(off)}#'));
+  }
+
+  // ---------- پرده: درصد باز بودن (از زمان حرکت؛ آخرین مقدار روی گوشی) ----------
+  final RxList<double> curtainPos = <double>[0, 0].obs;
+  Timer? _curT;
+  DateTime _curLast = DateTime.now();
+
+  int curtainSec(int i) {
+    final s1 = cf[23 + i * 2]?.sec1 ?? 0;
+    return s1 > 0 ? s1 : 30;
+  }
+
+  void _curtainTick() {
+    final now = DateTime.now();
+    final dt = now.difference(_curLast).inMilliseconds / 1000.0;
+    _curLast = now;
+    bool moving = false;
+    final p = List<double>.from(curtainPos);
+    for (int i = 0; i < 2; i++) {
+      final o = isOn(23 + i * 2), cl = isOn(24 + i * 2);
+      if (!o && !cl) continue;
+      moving = true;
+      p[i] = (p[i] + (o ? 1 : -1) * dt * 100 / curtainSec(i)).clamp(0, 100).toDouble();
+    }
+    curtainPos.assignAll(p);
+    if (!moving) {
+      _curT?.cancel();
+      _curT = null;
+      try {
+        GetStorage().write('sim12_curtain_pos', p);
+      } catch (_) {}
+    }
+  }
+
+  void _curtainWatch() {
+    final moving = isOn(23) || isOn(24) || isOn(25) || isOn(26);
+    if (moving && _curT == null) {
+      _curLast = DateTime.now();
+      _curT = Timer.periodic(const Duration(milliseconds: 200), (_) => _curtainTick());
+    }
+  }
+
   // ---------- نصاب ----------
 
   void setInstaller(bool on) {
@@ -558,7 +627,9 @@ class Sim12Controller extends GetxController {
       final v = int.tryParse(m.substring(2), radix: 16);
       if (v != null) {
         final changed = v ^ bits.value;
+        if (_curT != null) _curtainTick();
         bits.value = v;
+        _curtainWatch();
         for (int k = 0; k < keyCount; k++) {
           if ((changed >> k) & 1 == 1) _done(k);
         }
@@ -587,7 +658,7 @@ class Sim12Controller extends GetxController {
         final n = int.tryParse(p[0]) ?? 0;
         int h(String x) => int.tryParse(x, radix: 16) ?? 0;
         if (n >= 1 && n <= keyCount) {
-          cf[n - 1] = Sim12Cf(h(p[1]), h(p[2]), h(p[3]), h(p[4]));
+          cf[n - 1] = Sim12Cf(h(p[1]), h(p[2]), h(p[3]), h(p[4]), h(p[5]), h(p[6]));
           _got('C${p[0]}', true);
         }
       }
@@ -695,8 +766,8 @@ class Sim12Controller extends GetxController {
 
 /// تنظیمات یک کلید که پنل گزارش می‌دهد ($CF#nn#نوع#sec1#sec2#دقیقه#...$)
 class Sim12Cf {
-  const Sim12Cf(this.type, this.sec1, this.sec2, this.minutes);
-  final int type, sec1, sec2, minutes;
+  const Sim12Cf(this.type, this.sec1, this.sec2, this.minutes, [this.on = 0, this.off = 0]);
+  final int type, sec1, sec2, minutes, on, off;
 
   /// نوع‌های فریمور: ۳ سرویسی، ۴ تایمر خاموشی، ۵ خاموشی تأخیری، ۶ شاسی، ۷ پرده / کولر، ۱۱ خروج، ۱۲ خواب
   int get seconds => sec1 | (sec2 << 8);

@@ -24,6 +24,7 @@ import '../../data/data_sources/local_data_sources/database/model/scenario.dart'
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/connection_requests_impl.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import '../../panel12/panel12_controller.dart';
+import '../../sim12/sim12_start.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/result.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/wrappers/connection_manager/connection_manager_data_model.dart';
 import '../../data/enums/floor_code.dart';
@@ -128,7 +129,7 @@ class HomeLogic extends BaseLogic {
     if (result.isLoading) {
       isSocketConnecting.value = true;
       // در اتصال دوباره، فقط نوار کوچک «در حال اتصال» نمایش داده می‌شود
-      if (!isReconnect) Utils.toast('در حال اتصال...', Toast.LENGTH_LONG);
+      if (!isReconnect && !ConnectionKeeper.smsAccepted) Utils.toast('در حال اتصال...', Toast.LENGTH_LONG);
     } else if (result.isSuccess) {
       _onConnected(result.successValue);
     } else if (isReconnect) {
@@ -305,7 +306,20 @@ class HomeLogic extends BaseLogic {
     return GetWeatherCaseImpl().getWeather();
   }
 
+  bool _simAsked = false;
+
   void goToNoFoundScreen(ConnectionErrorCode errorCode) {
+    // پنل سیمکارتی، اولین اتصال ناموفق: پرسیده می‌شود با سیمکارت ادامه دهد یا نه
+    if (!ConnectionKeeper.instance.hasSession && !ConnectionKeeper.smsAccepted && Sim12Start.lastWasSim12()) {
+      if (_simAsked) return;
+      _simAsked = true;
+      isSocketConnecting.value = false;
+      Sim12Start.ask(onYes: () {
+        ConnectionKeeper.smsAccepted = true;
+        _retryWifiLater();
+      }, onNo: () => Get.off(() => NotFoundScreen(errorCode: errorCode), binding: AppBindings()));
+      return;
+    }
     if (ConnectionKeeper.holding) {
       // پنل سیمکارتی با شماره‌ی تعریف‌شده: در صفحه می‌ماند (پیامکی) و ۱۰ ثانیه بعد دوباره وصل می‌شود
       isSocketConnecting.value = false;
@@ -316,6 +330,14 @@ class HomeLogic extends BaseLogic {
     }
     // go to not found
     Get.off(() => NotFoundScreen(errorCode: errorCode), binding: AppBindings());
+  }
+
+  /// در حالت پیامکی: هر ۱۵ ثانیه وای‌فای دوباره امتحان می‌شود (وصل شد = خودکار وای‌فای)
+  void _retryWifiLater() {
+    Future.delayed(const Duration(seconds: 15), () {
+      if (isClosed || ConnectionKeeper.instance.state.value == LinkState.connected) return;
+      _establishConnection();
+    });
   }
 
   @override
