@@ -100,6 +100,26 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_sim.png'));
 
+    // حالت نصاب: تنظیمات کلیدها از پنل خوانده و یک زمان عوض می‌شود
+    s.tab.value = 'keys';
+    s.startDemo();
+    await tester.pump(const Duration(seconds: 12));
+    s.setInstaller(true);
+    await tester.pump(const Duration(seconds: 9));
+    expect(s.cf[3]?.type, 3);
+    expect(s.cf[19]?.seconds, 35);
+    expect(s.darkSec.value, 60);
+    s.saveTime(19, 'T', 120);
+    await tester.pump(const Duration(seconds: 1));
+    expect(s.cf[19]?.seconds, 120);
+    expect(s.message.value, 'روی پنل ثبت شد');
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_installer.png'));
+    s.setInstaller(false);
+    await tester.pump(const Duration(seconds: 4));
+    s.stopDemo();
+    await tester.pump();
+
     // جواب پیامکی پنل (وقتی وای‌فای نیست)
     s.setPanelNumber('09121234567');
     s.demo.value = false;

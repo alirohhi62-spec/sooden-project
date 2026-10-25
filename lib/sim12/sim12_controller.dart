@@ -81,6 +81,13 @@ class Sim12Controller extends GetxController {
   final RxSet<int> pendingKeys = <int>{}.obs;
   final RxString savedCode = ''.obs;
 
+  // ---------- نصاب ----------
+  final RxBool installer = false.obs;
+  final RxMap<int, Sim12Cf> cf = <int, Sim12Cf>{}.obs;
+  final RxInt darkSec = (-1).obs; // خاموش شدن پنل بعد از بی‌کاری (۰ = هرگز)، -۱ = هنوز خوانده نشده
+  List<int> _alRaw = const [];
+  final Map<String, Timer> _writeTimers = {};
+
   Sim12Simulator? _sim;
   final List<int> _demoRx = [];
   Timer? _loadTimer, _msgTimer, _armTimer, _smsTimer;
@@ -472,8 +479,71 @@ class Sim12Controller extends GetxController {
   }
 
   void setLabel(int k, String text) {
-    labels[k] = text;
-    if (!smsMode) _sendWifi('Lbl#${_two(k + 1)}#FF~$text#');
+    if (smsMode) {
+      _say('تغییر اسم فقط با وای‌فای', 'err');
+      return;
+    }
+    final clean = text.replaceAll(RegExp(r'[#\$!&@~\r\n%]'), '').trim();
+    final n = _two(k + 1);
+    _expect('L$n');
+    _sendWifi('Lbl#$n#FF~$clean#');
+    Timer(const Duration(milliseconds: 600), () => _sendWifi('@M_LBL#$n'));
+  }
+
+  // ---------- نصاب ----------
+
+  void setInstaller(bool on) {
+    installer.value = on;
+    if (on && !smsMode) {
+      for (int k = 1; k <= keyCount; k++) {
+        if (!_queue.contains('@M_CF#${_two(k)}')) _queue.add('@M_CF#${_two(k)}');
+      }
+      _queue.add('@M_CF#AL');
+      _pump();
+    }
+  }
+
+  /// یک زمان کلید: M دقیقه، T ثانیه (خروج / خواب)، 1 و 2 ثانیه
+  void saveTime(int k, String f, int v) {
+    if (smsMode) {
+      _say('تنظیمات فقط با وای‌فای', 'err');
+      return;
+    }
+    _expect('C${_two(k + 1)}');
+    _sendWifi('Set#${_two(k + 1)}#$f#${v.toRadixString(16).toUpperCase().padLeft(f == 'T' ? 4 : 2, '0')}#');
+  }
+
+  /// خاموش شدن پنل بعد از بی‌کاری (ثانیه، ۰ = هرگز)
+  void saveDark(int sec) {
+    if (smsMode) {
+      _say('تنظیمات فقط با وای‌فای', 'err');
+      return;
+    }
+    String h(int v) => v.clamp(0, 255).toRadixString(16).toUpperCase().padLeft(2, '0');
+    final a = _alRaw.length >= 3 ? _alRaw : const [20, 30, 60];
+    _expect('AL');
+    // سه عدد اول (زمان‌های دزدگیر قدیم پنل) همان که هست می‌ماند؛ دزدگیر این پنل میکروی خودش را دارد
+    _sendWifi('Set#AL#${h(a[0])}#${h(a[1] < 1 ? 1 : a[1])}#${h(a[2] < 1 ? 1 : a[2])}#${h(sec)}#');
+  }
+
+  void resetSettings() {
+    if (smsMode) return;
+    _sendWifi('Set#RS#');
+  }
+
+  void _expect(String key) {
+    _writeTimers.remove(key)?.cancel();
+    _say('در حال ذخیره روی پنل…', 'sticky');
+    _writeTimers[key] = Timer(const Duration(seconds: 4), () {
+      if (_writeTimers.remove(key) != null) _say('پنل جواب نداد؛ ذخیره نشد', 'err');
+    });
+  }
+
+  void _got(String key, bool ok) {
+    final t = _writeTimers.remove(key);
+    if (t == null) return;
+    t.cancel();
+    _say(ok ? 'روی پنل ثبت شد' : 'پنل این مقدار را قبول نکرد', ok ? 'ok' : 'err');
   }
 
   // ---------- پیام‌های پنل ----------
@@ -500,7 +570,33 @@ class Sim12Controller extends GetxController {
     } else if (m.startsWith('L') && m.length > 3 && m[3] == '#') {
       final k = (int.tryParse(m.substring(1, 3)) ?? 0) - 1;
       final t = m.indexOf('~');
-      if (k >= 0 && k < keyCount) labels[k] = t >= 0 ? m.substring(t + 1) : '';
+      if (k >= 0 && k < keyCount) {
+        labels[k] = t >= 0 ? m.substring(t + 1) : '';
+        _got('L${_two(k + 1)}', true);
+      }
+    } else if (m.startsWith('CF#AL#')) {
+      final p = m.substring(6).split('#');
+      if (p.length >= 4) {
+        _alRaw = [for (final x in p.take(4)) int.tryParse(x, radix: 16) ?? 0];
+        darkSec.value = _alRaw[3];
+        _got('AL', true);
+      }
+    } else if (m.startsWith('CF#')) {
+      final p = m.substring(3).split('#');
+      if (p.length >= 8) {
+        final n = int.tryParse(p[0]) ?? 0;
+        int h(String x) => int.tryParse(x, radix: 16) ?? 0;
+        if (n >= 1 && n <= keyCount) {
+          cf[n - 1] = Sim12Cf(h(p[1]), h(p[2]), h(p[3]), h(p[4]));
+          _got('C${p[0]}', true);
+        }
+      }
+    } else if (m.startsWith('SET#')) {
+      if (m == 'SET#RS#ok') {
+        _say('تنظیمات پروگرم برگشت؛ پنل دوباره روشن می‌شود', 'ok');
+      } else {
+        _got(m.startsWith('SET#AL') ? 'AL' : 'C${m.length >= 6 ? m.substring(4, 6) : ''}', false);
+      }
     } else if (m.startsWith('AL#')) {
       final p = m.substring(3).split('#');
       alarm.value = int.tryParse(p[0]) ?? 0;
@@ -595,6 +691,15 @@ class Sim12Controller extends GetxController {
       }
     }
   }
+}
+
+/// تنظیمات یک کلید که پنل گزارش می‌دهد ($CF#nn#نوع#sec1#sec2#دقیقه#...$)
+class Sim12Cf {
+  const Sim12Cf(this.type, this.sec1, this.sec2, this.minutes);
+  final int type, sec1, sec2, minutes;
+
+  /// نوع‌های فریمور: ۳ سرویسی، ۴ تایمر خاموشی، ۵ خاموشی تأخیری، ۶ شاسی، ۷ پرده / کولر، ۱۱ خروج، ۱۲ خواب
+  int get seconds => sec1 | (sec2 << 8);
 }
 
 /// یک رویداد دزدگیر

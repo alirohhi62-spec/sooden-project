@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../panel12/panel12_screen.dart' show askInstallerPin;
 import 'sim12_controller.dart';
 
 // ---------- رنگ‌ها (هم‌خانواده‌ی شیشه‌ی پنل) ----------
@@ -44,8 +45,10 @@ class Sim12Screen extends StatelessWidget {
           child: Obx(() {
             c.bits.value;
             c.link.value;
+            c.installer.value;
             return Column(children: [
               _header(),
+              if (c.installer.value) _installerBar(context),
               _panelPhoto(context),
               if (c.smsMode) _smsBanner(),
               _notice(),
@@ -65,11 +68,15 @@ class Sim12Screen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Row(children: [
-        const Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('پنل سیمکارتی', style: TextStyle(color: _text, fontSize: 17, fontWeight: FontWeight.w700)),
-            Text('۱۲ پل، دزدگیر، سیمکارت', style: TextStyle(color: _muted, fontSize: 12)),
-          ]),
+        Expanded(
+          child: GestureDetector(
+            // نگه داشتن عنوان: ورود نصاب (مثل بقیه‌ی پنل‌ها)
+            onLongPress: () => askInstallerPin(() => c.setInstaller(true)),
+            child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('پنل سیمکارتی', style: TextStyle(color: _text, fontSize: 17, fontWeight: FontWeight.w700)),
+              Text('۱۲ پل، دزدگیر، سیمکارت', style: TextStyle(color: _muted, fontSize: 12)),
+            ]),
+          ),
         ),
         Material(
           color: sms ? _amberBg : const Color(0xFF163322),
@@ -133,7 +140,7 @@ class Sim12Screen extends StatelessWidget {
       height: hit,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => c.press(k),
+        onTap: () { if (c.installer.value) { _editKey(k); } else { c.press(k); } },
         child: Center(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -331,8 +338,7 @@ class Sim12Screen extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: on ? _red : _line)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: none ? null : () => c.press(k),
-        onLongPress: c.smsMode ? null : () => _rename(context, k),
+        onTap: c.installer.value ? () => _editKey(k) : none ? null : () => c.press(k),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(children: [
@@ -363,31 +369,180 @@ class Sim12Screen extends StatelessWidget {
     );
   }
 
-  void _rename(BuildContext context, int k) {
-    final t = TextEditingController(text: c.labels[k]);
-    Get.dialog(Directionality(
-      textDirection: TextDirection.rtl,
-      child: AlertDialog(
-        backgroundColor: _card,
-        title: Text('اسم ${Sim12Controller.defaultName(k)}', style: const TextStyle(color: _text, fontSize: 15)),
-        content: TextField(
-          controller: t,
-          maxLength: 10,
-          autofocus: true,
-          style: const TextStyle(color: _text),
-          decoration: const InputDecoration(hintText: 'مثلاً لوستر سالن', hintStyle: TextStyle(color: _muted)),
+  // ---------- نصاب ----------
+
+  Widget _installerBar(BuildContext context) => Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+        decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _amber)),
+        child: Row(children: [
+          const Expanded(
+              child: Text('حالت نصاب: هر کلید را بزن تا اسم و زمانش عوض شود', style: TextStyle(color: _amberText, fontSize: 12))),
+          TextButton(onPressed: () => _installerSheet(context), child: const Text('تنظیمات', style: TextStyle(color: _amber))),
+          TextButton(onPressed: () => c.setInstaller(false), child: const Text('خروج ✕', style: TextStyle(color: _amber))),
+        ]),
+      );
+
+  /// اسم و زمان یک کلید (حالت نصاب)
+  void _editKey(int k) {
+    if (c.smsMode) {
+      c.setLabel(k, ''); // فقط پیام «با وای‌فای»
+      return;
+    }
+    final name = TextEditingController(text: c.labels[k]);
+    final cf = c.cf[k];
+    final t = cf?.type ?? -1;
+    // زمان این نوع کلید: [حرف فرمان، عنوان، واحد، مقدار فعلی، کمینه، بیشینه]
+    final times = <List<Object>>[
+      if (cf != null && (t == 3 || t == 4)) ['M', t == 3 ? 'زمان سرویسی' : 'زمان تایمر خاموشی', 'دقیقه', cf.minutes, 1, 255],
+      if (cf != null && t == 5) ['1', 'تأخیر خاموشی', 'ثانیه', cf.sec1, 1, 255],
+      if (cf != null && t == 6) ['1', 'تأخیر وصل (۰ = همان لحظه)', 'ثانیه', cf.sec1, 0, 255],
+      if (cf != null && t == 6) ['2', 'زمان وصل (۰ = وصل می‌ماند)', 'ثانیه', cf.sec2, 0, 255],
+      if (cf != null && t == 7 && cf.sec1 > 0) ['1', 'زمان حرکت', 'ثانیه', cf.sec1, 1, 255],
+      if (cf != null && (t == 11 || t == 12)) ['T', t == 11 ? 'زمان سناریوی خروج' : 'زمان سناریوی خواب', 'ثانیه', cf.seconds, 0, 65535],
+    ];
+    final ctrls = [for (final x in times) TextEditingController(text: '${x[3]}')];
+    Get.bottomSheet(
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(color: Color(0xFF14151A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('${Sim12Controller.defaultName(k)} - ${c.kindText(k)}',
+                  style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: name,
+                maxLength: 20,
+                style: const TextStyle(color: _text),
+                decoration: const InputDecoration(labelText: 'اسم کلید', hintText: 'مثلاً لوستر سالن'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  c.setLabel(k, name.text);
+                  Get.back();
+                },
+                child: const Text('ذخیره اسم'),
+              ),
+              if (cf == null && c.installer.value)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Text('تنظیمات این کلید هنوز از پنل نرسیده؛ چند ثانیه بعد دوباره باز کن.',
+                      style: TextStyle(color: _muted, fontSize: 12)),
+                ),
+              for (int i = 0; i < times.length; i++) ...[
+                const SizedBox(height: 14),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: ctrls[i],
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: _text),
+                      decoration: InputDecoration(
+                          labelText: times[i][1] as String,
+                          suffixText: times[i][2] as String,
+                          helperText: '${Sim12Controller.faNum(times[i][4] as int)} تا ${Sim12Controller.faNum(times[i][5] as int)}'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      final v = int.tryParse(ctrls[i].text.trim());
+                      if (v == null || v < (times[i][4] as int) || v > (times[i][5] as int)) {
+                        Get.snackbar('عدد درست نیست', 'بین ${times[i][4]} و ${times[i][5]}', colorText: _text);
+                        return;
+                      }
+                      c.saveTime(k, times[i][0] as String, v);
+                      Get.back();
+                    },
+                    child: const Text('ذخیره'),
+                  ),
+                ]),
+              ],
+            ]),
+          ),
         ),
-        actions: [
-          TextButton(onPressed: Get.back, child: const Text('انصراف')),
-          TextButton(
-              onPressed: () {
-                c.setLabel(k, t.text.trim());
-                Get.back();
-              },
-              child: const Text('ذخیره')),
-        ],
       ),
-    ));
+      isScrollControlled: true,
+    );
+  }
+
+  /// تنظیمات نصاب: خاموش شدن پنل، برگشت به تنظیمات پروگرم
+  void _installerSheet(BuildContext context) {
+    final dark = TextEditingController(text: c.darkSec.value >= 0 ? '${c.darkSec.value}' : '');
+    Get.bottomSheet(
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(color: Color(0xFF14151A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text('تنظیمات نصاب', style: TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: dark,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: _text),
+                decoration: const InputDecoration(labelText: 'خاموش شدن پنل بعد از بی‌کاری (۰ = هرگز)', suffixText: 'ثانیه'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final v = int.tryParse(dark.text.trim());
+                  if (v == null || v < 0 || v > 255) {
+                    Get.snackbar('عدد درست نیست', 'بین ۰ و ۲۵۵', colorText: _text);
+                    return;
+                  }
+                  c.saveDark(v);
+                  Get.back();
+                },
+                child: const Text('ذخیره روی پنل'),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () {
+                  Get.back();
+                  _editNumber(context);
+                },
+                child: const Text('شماره سیمکارت پنل (برای پیامک)'),
+              ),
+              const SizedBox(height: 6),
+              OutlinedButton(
+                onPressed: () {
+                  Get.back();
+                  Get.dialog(Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: AlertDialog(
+                      backgroundColor: _card,
+                      title: const Text('برگشت به تنظیمات پروگرم', style: TextStyle(color: _text, fontSize: 16)),
+                      content: const Text('زمان‌هایی که از گوشی عوض شده پاک می‌شوند و پنل دوباره روشن می‌شود. اسم کلیدها می‌ماند.',
+                          style: TextStyle(color: _muted, fontSize: 13, height: 1.7)),
+                      actions: [
+                        TextButton(onPressed: Get.back, child: const Text('انصراف')),
+                        TextButton(
+                          onPressed: () {
+                            Get.back();
+                            c.resetSettings();
+                          },
+                          child: const Text('برگشت', style: TextStyle(color: _red)),
+                        ),
+                      ],
+                    ),
+                  ));
+                },
+                child: const Text('برگشت به تنظیمات پروگرم'),
+              ),
+              const SizedBox(height: 8),
+              const Text('زمان‌های دزدگیر، رمز و شماره‌های پیامک / تماس در مرحله‌ی بعد اضافه می‌شود.',
+                  style: TextStyle(color: _muted, fontSize: 12)),
+            ]),
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+    );
   }
 
   // ---------- دزدگیر ----------
@@ -580,7 +735,7 @@ class Sim12Screen extends StatelessWidget {
         decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
           Expanded(child: Text(c.nameOf(22), style: const TextStyle(color: _text, fontSize: 14, fontWeight: FontWeight.w600))),
-          SizedBox(width: 110, height: 48, child: _bigBtn('احضار', _red, null, () => c.press(22))),
+          SizedBox(width: 110, height: 48, child: _bigBtn('احضار', _red, null, () { if (c.installer.value) { _editKey(22); } else { c.press(22); } })),
         ]),
       ),
     ]);
@@ -594,7 +749,15 @@ class Sim12Screen extends StatelessWidget {
           child: SizedBox(
             height: 48,
             child: Directionality(
-                textDirection: TextDirection.rtl, child: _bigBtn(t, lit ? _redBg : _key, lit ? _red : _line, () => c.curtain(i, op))),
+                textDirection: TextDirection.rtl,
+                child: _bigBtn(t, lit ? _redBg : _key, lit ? _red : _line,
+                    () {
+                  if (!c.installer.value) {
+                    c.curtain(i, op);
+                  } else if (op != 1) {
+                    _editKey(op == 0 ? ko : kc);
+                  }
+                })),
           ),
         );
     return Container(
@@ -626,7 +789,7 @@ class Sim12Screen extends StatelessWidget {
 
   Widget _scnZone() {
     return ListView(padding: const EdgeInsets.only(bottom: 12), children: [
-      SizedBox(height: 56, child: _bigBtn('${c.nameOf(21)}: خاموش کردن همه', _red, null, () => c.press(21))),
+      SizedBox(height: 56, child: _bigBtn('${c.nameOf(21)}: خاموش کردن همه', _red, null, () { if (c.installer.value) { _editKey(21); } else { c.press(21); } })),
       const SizedBox(height: 10),
       GridView.count(
         crossAxisCount: 2,
@@ -643,7 +806,7 @@ class Sim12Screen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.isOn(k) ? _red : _line)),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: () => c.press(k),
+                onTap: () { if (c.installer.value) { _editKey(k); } else { c.press(k); } },
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text(c.nameOf(k), style: const TextStyle(color: _text, fontSize: 14)),
                   Text('S${Sim12Controller.faNum(k - 14)} - ${c.kindText(k)}', style: const TextStyle(color: _muted, fontSize: 11)),
@@ -683,10 +846,11 @@ class Sim12Screen extends StatelessWidget {
           _row('شماره سیمکارت پنل', c.panelNumber.value.isEmpty ? 'وارد نشده' : c.panelNumber.value,
               c.panelNumber.value.isEmpty ? const Color(0xFFFF9B9B) : _text,
               last: true),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: TextButton(onPressed: () => _editNumber(context), child: const Text('تغییر شماره')),
-          ),
+          if (c.installer.value || c.panelNumber.value.isEmpty)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton(onPressed: () => _editNumber(context), child: const Text('تغییر شماره')),
+            ),
           if (c.savedCode.value.isNotEmpty)
             Align(
               alignment: AlignmentDirectional.centerEnd,

@@ -21,6 +21,16 @@ class Sim12Simulator {
   final Map<int, Timer> _cur = {};
   Timer? _alT;
 
+  int _dark = 60, _exitSec = 35, _fanMin = 15;
+  static String _hx(int v, int n) => v.toRadixString(16).toUpperCase().padLeft(n, '0');
+  // کلید ۴ سرویسی (هود)، S5 خروج؛ بقیه معمولی
+  int _type(int n) => n == 4 ? 3 : n == 20 ? 11 : n == 22 ? 2 : 1;
+  String _cf(int n) {
+    final t = _type(n);
+    final s1 = t == 11 ? _exitSec & 255 : 0, s2 = t == 11 ? _exitSec >> 8 : 0, m = t == 3 ? _fanMin : 0;
+    return 'CF#${n.toString().padLeft(2, '0')}#${_hx(t, 2)}#${_hx(s1, 2)}#${_hx(s2, 2)}#${_hx(m, 2)}#000000#000000#0000';
+  }
+
   void dispose() {
     for (final t in _cur.values) {
       t.cancel();
@@ -52,6 +62,28 @@ class Sim12Simulator {
       final t = s.indexOf('~');
       _lbl[n] = t >= 0 ? s.substring(t + 1, s.length - 1) : '';
       return;
+    }
+    if (s == '@M_CF#AL') return _out('CF#AL#00#00#00#$_hx(_dark, 2)');
+    if (s.startsWith('@M_CF#')) {
+      final n = int.tryParse(s.substring(6)) ?? 0;
+      if (n >= 1 && n <= 27) _out(_cf(n));
+      return;
+    }
+    if (s.startsWith('Set#AL#')) {
+      final p = s.split('#');
+      if (p.length > 5) _dark = int.tryParse(p[5], radix: 16) ?? _dark;
+      return _out('CF#AL#00#00#00#$_hx(_dark, 2)');
+    }
+    if (s.startsWith('Set#RS#')) return _out('SET#RS#ok');
+    if (s.startsWith('Set#')) {
+      final p = s.split('#');
+      final n = int.tryParse(p[1]) ?? 0;
+      final v = int.tryParse(p.length > 3 ? p[3] : '', radix: 16);
+      final t = _type(n);
+      final ok = v != null && ((p[2] == 'T' && t == 11) || (p[2] == 'M' && t == 3 && v >= 1));
+      if (!ok) return _out('SET#${p[1]}#no');
+      if (p[2] == 'T') _exitSec = v; else _fanMin = v;
+      return _out(_cf(n));
     }
     if (s.startsWith('&K#')) {
       final k = (int.tryParse(s.substring(3)) ?? 0) - 1;
