@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../panel12/panel12_screen.dart' show askInstallerPin;
+import '../sd23/sd23_vacation.dart';
 import 'sim12_controller.dart';
 
 // ---------- رنگ‌ها (هم‌خانواده‌ی شیشه‌ی پنل) ----------
@@ -418,7 +419,7 @@ class Sim12Screen extends StatelessWidget {
               const SizedBox(height: 12),
               TextField(
                 controller: name,
-                maxLength: 20,
+                maxLength: 16,
                 style: const TextStyle(color: _text),
                 decoration: const InputDecoration(labelText: 'اسم کلید', hintText: 'مثلاً لوستر سالن'),
               ),
@@ -1083,6 +1084,33 @@ class _Sim12DemoPageState extends State<Sim12DemoPage> {
 }
 
 /// تب‌های سناریو و مسافرت برای پنل سیمکارتی: همه‌چیز در صفحه‌ی اصلی پنل است
+/// زبانه‌ی مسافرت پنل سیمکارتی: همان صفحه‌ی مسافرت پنل ۲۳ کلید (پل‌ها و پرده‌های همین پنل)
+class Sim12VacationPage extends StatefulWidget {
+  const Sim12VacationPage({super.key});
+
+  @override
+  State<Sim12VacationPage> createState() => _Sim12VacationPageState();
+}
+
+class _Sim12VacationPageState extends State<Sim12VacationPage> {
+  @override
+  void initState() {
+    super.initState();
+    Sim12Controller.instance.vacationView();
+  }
+
+  @override
+  Widget build(BuildContext context) => Obx(() => Sim12Controller.instance.smsMode
+      ? Container(
+          color: _bg,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(32),
+          child: const Text('برنامه‌ی مسافرت فقط با وای‌فای پنل ذخیره می‌شود؛ وقتی وای‌فای وصل شد همین‌جا را باز کن.',
+              textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: TextStyle(color: _muted, fontSize: 14, height: 1.7)),
+        )
+      : const Sd23VacationPage());
+}
+
 class Sim12ElsewherePage extends StatelessWidget {
   const Sim12ElsewherePage({super.key});
 

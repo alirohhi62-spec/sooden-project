@@ -212,7 +212,8 @@ class Sim12Controller extends GetxController {
       ..addAll([Sd23Controller.clockCommand(), '@M_LAY', '@K', '@X1Z', '@M_SIM', '@M_EV'])
       ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
       // سناریوها (پل‌ها و زمان خروج)، مستر و پرده‌ها (زمان حرکت برای درصد)
-      ..addAll([for (final n in [16, 17, 18, 19, 20, 22, 24, 25, 26, 27]) '@M_CF#${_two(n)}']);
+      ..addAll([for (final n in [16, 17, 18, 19, 20, 22, 24, 25, 26, 27]) '@M_CF#${_two(n)}'])
+      ..add('@M_POS');
     _pump();
   }
 
@@ -492,7 +493,7 @@ class Sim12Controller extends GetxController {
     final clean = text.replaceAll(RegExp(r'[#\$!&@~\r\n%]'), '').trim();
     final n = _two(k + 1);
     _expect('L$n');
-    _sendWifi('Lbl#$n#FF~$clean#');
+    _sendWifi('Lbl#$n#${String.fromCharCodes(clean.runes.take(16))}#');
     Timer(const Duration(milliseconds: 600), () => _sendWifi('@M_LBL#$n'));
   }
 
@@ -539,7 +540,7 @@ class Sim12Controller extends GetxController {
       final o = isOn(23 + i * 2), cl = isOn(24 + i * 2);
       if (!o && !cl) continue;
       moving = true;
-      p[i] = (p[i] + (o ? 1 : -1) * dt * 100 / curtainSec(i)).clamp(0, 100).toDouble();
+      p[i] = (p[i] + (o ? 1 : -1) * dt * 100 / curtainSec(i)).clamp(0, _posFw && o ? 99 : 100).toDouble();
     }
     curtainPos.assignAll(p);
     if (!moving) {
@@ -551,12 +552,46 @@ class Sim12Controller extends GetxController {
     }
   }
 
+  int _posPoll = 0;
+  bool _posFw = false; // پنل درصد را خودش می‌گوید (فریمور جدید)
+
   void _curtainWatch() {
     final moving = isOn(23) || isOn(24) || isOn(25) || isOn(26);
     if (moving && _curT == null) {
       _curLast = DateTime.now();
-      _curT = Timer.periodic(const Duration(milliseconds: 200), (_) => _curtainTick());
+      _curT = Timer.periodic(const Duration(milliseconds: 200), (_) {
+        _curtainTick();
+        if (!smsMode && ++_posPoll % 5 == 0) _sendWifi('@M_POS');
+      });
     }
+    if (!moving && !smsMode) Timer(const Duration(milliseconds: 400), () => _sendWifi('@M_POS'));
+  }
+
+  void _onPos(String m) {
+    final p = m.split('#');
+    if (p.length < 3) return;
+    final a = int.tryParse(p[1]), b = int.tryParse(p[2]);
+    if (a == null || b == null) return;
+    _posFw = true;
+    double f(int v) => v >= 99 ? 100 : v.toDouble();
+    curtainPos.assignAll([f(a), f(b)]);
+  }
+
+  /// صفحه‌ی مسافرت پنل ۲۳ کلید برای این پنل: پل ۱ تا ۱۵ همان جاها، پرده‌ها روی جای ۱۶ تا ۱۹ (مثل فریمور)
+  void vacationView() {
+    final d = Sd23Controller.instance;
+    final l = StringBuffer();
+    for (int k = 0; k < 15; k++) {
+      final t = kindOf(k);
+      l.write(t == 'L' || t == 'D' ? t : '-');
+    }
+    l.write('UWUW');
+    d.lay.value = l.toString().padRight(Sd23Controller.keyCount, '-');
+    d.labels.assignAll([
+      for (int k = 0; k < Sd23Controller.keyCount; k++)
+        k < 15 ? nameOf(k) : k < 19 ? nameOf(23 + k - 15) : ''
+    ]);
+    d.loadVacation();
   }
 
   // ---------- نصاب ----------
@@ -642,9 +677,13 @@ class Sim12Controller extends GetxController {
       final k = (int.tryParse(m.substring(1, 3)) ?? 0) - 1;
       final t = m.indexOf('~');
       if (k >= 0 && k < keyCount) {
-        labels[k] = t >= 0 ? m.substring(t + 1) : '';
+        labels[k] = t >= 0 ? m.substring(t + 1) : m.substring(4);
         _got('L${_two(k + 1)}', true);
       }
+    } else if (m.startsWith('POS#')) {
+      _onPos(m);
+    } else if (m.startsWith('V#') || m.startsWith('CLK#')) {
+      Sd23Controller.instance.handle(m); // برنامه‌ی مسافرت (همان صفحه‌ی پنل ۲۳ کلید)
     } else if (m.startsWith('CF#AL#')) {
       final p = m.substring(6).split('#');
       if (p.length >= 4) {

@@ -32,7 +32,8 @@ class Panel12VacationTabHost extends StatelessWidget {
       final showOld = known && !c.isRf12.value && !c.isSd23.value && !c.isSim12.value;
       return Stack(fit: StackFit.expand, children: [
         Offstage(offstage: !showOld, child: home),
-        if (sim) const Sim12ElsewherePage(),
+        if (sim) const Sim12VacationPage(),
+        if (sim) const Panel12Overlay(),
         if (sd) const Sd23OwnOnly(what: 'برنامه‌ی مسافرت', child: Sd23VacationPage()),
         if (sd) const Panel12Overlay(),
         if (showNew) const Panel12VacationScreen(),
