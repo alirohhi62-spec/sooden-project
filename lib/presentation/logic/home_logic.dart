@@ -306,6 +306,14 @@ class HomeLogic extends BaseLogic {
   }
 
   void goToNoFoundScreen(ConnectionErrorCode errorCode) {
+    if (ConnectionKeeper.holding) {
+      // پنل سیمکارتی با شماره‌ی تعریف‌شده: در صفحه می‌ماند (پیامکی) و ۱۰ ثانیه بعد دوباره وصل می‌شود
+      isSocketConnecting.value = false;
+      Future.delayed(const Duration(seconds: 10), () {
+        if (!isClosed && ConnectionKeeper.instance.state.value != LinkState.connected) _establishConnection();
+      });
+      return;
+    }
     // go to not found
     Get.off(() => NotFoundScreen(errorCode: errorCode), binding: AppBindings());
   }

@@ -241,7 +241,13 @@ class Sim12Controller extends GetxController {
   bool get wifiUp => demo.value || ConnectionKeeper.instance.state.value == LinkState.connected;
 
   void updateLink() {
+    final was = link.value;
     link.value = (!forceSms.value && wifiUp) ? 'wifi' : 'sms';
+    if (was == 'wifi' && link.value == 'sms' && !forceSms.value && panelNumber.value.isNotEmpty) {
+      _say('وای‌فای پنل قطع شد؛ فرمان‌ها با پیامک می‌رود', 'err');
+    } else if (was == 'sms' && link.value == 'wifi' && panelNumber.value.isNotEmpty) {
+      _say('وای‌فای پنل وصل شد', 'ok');
+    }
   }
 
   void toggleLink() {

@@ -31,6 +31,11 @@ class ConnectionKeeper {
   /// وضعیت اتصال برای نمایش نوار «در حال اتصال»
   final Rx<LinkState> state = LinkState.disconnected.obs;
 
+  /// پنل سیمکارتی: وقتی true بدهد، قطع وای‌فای به صفحه‌ی «دستگاه پیدا نشد» نمی‌رود
+  /// (صفحه می‌ماند و فرمان‌ها با پیامک می‌رود) و اتصال پشت صحنه دوباره امتحان می‌شود
+  static bool Function()? holdOnLoss;
+  static bool get holding => holdOnLoss?.call() ?? false;
+
   bool _sessionReady = false; // اتصال اولیه و دریافت تنظیمات یک بار کامل شده
   bool _inForeground = true;
   bool _quickReconnecting = false;
@@ -192,10 +197,16 @@ class ConnectionKeeper {
     final left = SocketConstants.reconnectGiveUpSeconds - elapsed;
     _giveUpTimer = Timer(Duration(seconds: left > 0 ? left : 0), () {
       if (Socket.instance.isConnected()) return;
-      _logger('_giveUp', 'could not reconnect -> show error screen');
       _quickReconnecting = false;
       _fullReconnecting = false;
       _reconnectStartedAt = null;
+      if (holding) {
+        _logger('_giveUp', 'SIM panel: stay (SMS), try again in 10 s');
+        state.value = LinkState.disconnected;
+        Timer(const Duration(seconds: 10), ensureConnected);
+        return;
+      }
+      _logger('_giveUp', 'could not reconnect -> show error screen');
       eventBus.fire(EventBusModel(
           event: EventBusConst.eventSocketFailed, data: ConnectionErrorCode.timeoutNotConnected));
     });

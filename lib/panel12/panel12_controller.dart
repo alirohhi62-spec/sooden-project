@@ -8,6 +8,7 @@ import '../core/eventbus/event_bus_const.dart';
 import '../core/eventbus/event_bus_model.dart';
 import '../core/utils/globals.dart';
 import '../data/data_sources/remote_data_sources/socket/socket.dart';
+import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import '../sd23/sd23_controller.dart';
 import '../sim12/sim12_controller.dart';
 import 'panel12_icons.dart';
@@ -235,7 +236,16 @@ class Panel12Controller extends GetxController {
     } catch (_) {}
     _busSub = eventBus.on<EventBusModel>().listen((e) {
       if (e.event == EventBusConst.eventSocketReconnect) reloadPanel();
-    });
+    });    // پنل سیمکارتی با شماره‌ی پنل: قطع وای‌فای = حالت پیامکی در همان صفحه، نه صفحه‌ی «دستگاه پیدا نشد»
+    ConnectionKeeper.holdOnLoss = () {
+      final sim = isSim12.value || (!modelKnown.value && lastSim12.value);
+      if (!sim) return false;
+      try {
+        return ((GetStorage().read('sim12_panel_number') as String?) ?? '').isNotEmpty;
+      } catch (_) {
+        return false;
+      }
+    };
   }
 
   @override
