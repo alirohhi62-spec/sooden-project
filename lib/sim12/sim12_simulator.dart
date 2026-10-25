@@ -63,7 +63,7 @@ class Sim12Simulator {
       _lbl[n] = t >= 0 ? s.substring(t + 1, s.length - 1) : '';
       return;
     }
-    if (s == '@M_CF#AL') return _out('CF#AL#00#00#00#$_hx(_dark, 2)');
+    if (s == '@M_CF#AL') return _out('CF#AL#00#00#00#${_hx(_dark, 2)}');
     if (s.startsWith('@M_CF#')) {
       final n = int.tryParse(s.substring(6)) ?? 0;
       if (n >= 1 && n <= 27) _out(_cf(n));
@@ -72,7 +72,7 @@ class Sim12Simulator {
     if (s.startsWith('Set#AL#')) {
       final p = s.split('#');
       if (p.length > 5) _dark = int.tryParse(p[5], radix: 16) ?? _dark;
-      return _out('CF#AL#00#00#00#$_hx(_dark, 2)');
+      return _out('CF#AL#00#00#00#${_hx(_dark, 2)}');
     }
     if (s.startsWith('Set#RS#')) return _out('SET#RS#ok');
     if (s.startsWith('Set#')) {
