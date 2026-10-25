@@ -117,6 +117,16 @@ void main() {
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12_installer.png'));
     s.setInstaller(false);
     await tester.pump(const Duration(seconds: 4));
+    s.loadAlarmSettings();
+    await tester.pump(const Duration(seconds: 1));
+    expect(s.acf.length, 10);
+    s.saveAlarmSetting(0, '25');
+    await tester.pump(const Duration(seconds: 2));
+    expect(s.acf[0], '25');
+    expect(s.message.value, 'روی دزدگیر ثبت شد');
+    s.saveAlarmSetting(1, '0');
+    await tester.pump(const Duration(seconds: 1));
+    expect(s.message.value, 'دزدگیر این مقدار را قبول نکرد');
     s.tab.value = 'scn';
     s.scenariosOff();
     await tester.pump(const Duration(seconds: 1));

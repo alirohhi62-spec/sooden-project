@@ -649,6 +649,77 @@ class Sim12Controller extends GetxController {
     d.loadVacation();
   }
 
+  // ---------- تنظیمات دزدگیر (نصاب، با وای‌فای) ----------
+  /// خروج، ورود، آژیر (ثانیه)، رمز، پیامک ۱ تا ۳، تماس ۱ تا ۳
+  final RxList<String> acf = <String>[].obs;
+  final RxBool acfLoading = false.obs;
+  String? _acfExpect; // [شماره‌ی فیلد, مقدار] منتظر تأیید با خواندن دوباره
+  int _acfField = -1;
+  Timer? _acfTimer;
+
+  void loadAlarmSettings() {
+    if (smsMode) {
+      _say('تنظیمات دزدگیر فقط با وای‌فای', 'err');
+      return;
+    }
+    acfLoading.value = true;
+    _sendWifi('&ACR');
+    _acfTimer?.cancel();
+    _acfTimer = Timer(const Duration(seconds: 15), () {
+      if (acfLoading.value) {
+        acfLoading.value = false;
+        _acfField = -1;
+        _say('دزدگیر جواب نداد', 'err');
+      }
+    });
+  }
+
+  static const acfCodes = ['E', 'N', 'S', 'P', '1', '2', '3', '4', '5', '6'];
+
+  /// i: ۰ خروج، ۱ ورود، ۲ آژیر، ۳ رمز، ۴..۶ پیامک، ۷..۹ تماس
+  void saveAlarmSetting(int i, String value) {
+    if (smsMode) {
+      _say('تنظیمات دزدگیر فقط با وای‌فای', 'err');
+      return;
+    }
+    final v = value.replaceAll(RegExp(r'[^0-9+]'), '');
+    _acfField = i;
+    _acfExpect = v;
+    _say('در حال ذخیره روی دزدگیر...', 'sticky');
+    _sendWifi('&ACS#${acfCodes[i]}#$v#');
+    _acfTimer?.cancel();
+    _acfTimer = Timer(const Duration(seconds: 20), () {
+      if (_acfField >= 0) {
+        _acfField = -1;
+        _say('دزدگیر جواب نداد؛ ذخیره نشد', 'err');
+      }
+    });
+  }
+
+  void _onAcs(String r) {
+    if (_acfField < 0) return;
+    if (r == 'ok') {
+      loadAlarmSettings(); // «ثبت شد» فقط وقتی دزدگیر همان مقدار را برگرداند
+    } else {
+      _acfField = -1;
+      _acfTimer?.cancel();
+      _say(r == 'busy' ? 'دزدگیر مشغول است؛ چند ثانیه بعد دوباره بزن' : 'دزدگیر این مقدار را قبول نکرد', 'err');
+    }
+  }
+
+  void _onAcf(String body) {
+    final p = body.split(',');
+    if (p.length < 10) return;
+    acf.assignAll(p.take(10));
+    acfLoading.value = false;
+    _acfTimer?.cancel();
+    if (_acfField >= 0) {
+      final ok = p[_acfField] == _acfExpect;
+      _say(ok ? 'روی دزدگیر ثبت شد' : 'دزدگیر تغییر را ثبت نکرد؛ دوباره امتحان کن', ok ? 'ok' : 'err');
+      _acfField = -1;
+    }
+  }
+
   // ---------- نصاب ----------
 
   void setInstaller(bool on) {
@@ -740,6 +811,10 @@ class Sim12Controller extends GetxController {
         labels[k] = t >= 0 ? m.substring(t + 1) : m.substring(4);
         _got('L${_two(k + 1)}', true);
       }
+    } else if (m.startsWith('ACF#')) {
+      _onAcf(m.substring(4));
+    } else if (m.startsWith('ACS#')) {
+      _onAcs(m.substring(4));
     } else if (m.startsWith('SOFF#')) {
       if (m == 'SOFF#1') {
         _scnDone();

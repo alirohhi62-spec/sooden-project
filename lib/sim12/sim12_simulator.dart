@@ -22,6 +22,7 @@ class Sim12Simulator {
   Timer? _alT;
 
   int _dark = 60, _exitSec = 35, _fanMin = 15;
+  final List<String> _acf = ['40', '30', '180', '1234', '09121111111', '09352222222', '', '09121111111', '', ''];
   static String _hx(int v, int n) => v.toRadixString(16).toUpperCase().padLeft(n, '0');
   // کلید ۴ سرویسی (هود)، S5 خروج؛ بقیه معمولی
   int _type(int n) => n == 4 ? 3 : n == 20 ? 11 : n == 22 ? 2 : 1;
@@ -64,6 +65,16 @@ class Sim12Simulator {
       return;
     }
     if (s == '@M_POS') return _out('POS#00#00');
+    if (s == '&ACR') return _out('ACF#${_acf.join(',')}');
+    if (s.startsWith('&ACS#')) {
+      final p = s.split('#');
+      const codes = ['E', 'N', 'S', 'P', '1', '2', '3', '4', '5', '6'];
+      final i = codes.indexOf(p[1]);
+      final v = p.length > 2 ? p[2] : '';
+      if (i < 0 || (i == 1 && (int.tryParse(v) ?? 0) < 1) || (i == 3 && v.length != 4)) return _out('ACS#no');
+      _acf[i] = v;
+      return _out('ACS#ok');
+    }
     if (s == '&SOFF') {
       _on &= ~0x0F3F;
       _out('SOFF#1');

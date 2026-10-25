@@ -474,6 +474,105 @@ class Sim12Screen extends StatelessWidget {
     );
   }
 
+  /// تنظیمات دزدگیر از اپ: زمان‌ها، رمز، ۳ شماره‌ی پیامک و ۳ شماره‌ی تماس (از خود دزدگیر خوانده می‌شود)
+  void _alarmSettingsSheet() {
+    if (c.smsMode) {
+      Get.snackbar('فقط با وای‌فای', 'تنظیمات دزدگیر با وای‌فای پنل خوانده و ذخیره می‌شود', colorText: _text);
+      return;
+    }
+    const rows = <List<String>>[
+      ['زمان فعال شدن بعد از رمز (۰ = همان لحظه)', 'ثانیه'],
+      ['مهلت زدن رمز بعد از باز شدن در', 'ثانیه'],
+      ['زمان آژیر', 'ثانیه'],
+      ['رمز دزدگیر (۴ رقم)', ''],
+      ['شماره پیامک ۱', ''],
+      ['شماره پیامک ۲', ''],
+      ['شماره پیامک ۳', ''],
+      ['شماره تماس ۱', ''],
+      ['شماره تماس ۲', ''],
+      ['شماره تماس ۳', ''],
+    ];
+    final ctrls = [for (int i = 0; i < 10; i++) TextEditingController()];
+    void fill() {
+      for (int i = 0; i < 10 && i < c.acf.length; i++) {
+        ctrls[i].text = c.acf[i];
+      }
+    }
+
+    c.acf.clear();
+    c.loadAlarmSettings();
+    final w = ever<List<String>>(c.acf, (_) => fill());
+    Get.bottomSheet(
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(Get.context!).size.height * .85),
+          decoration: const BoxDecoration(color: Color(0xFF14151A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          child: Obx(() {
+            final loading = c.acf.length < 10;
+            return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text('تنظیمات دزدگیر', style: TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w700)),
+              const Text('هر مورد جدا ذخیره می‌شود؛ «ثبت شد» وقتی است که دزدگیر همان مقدار را برگرداند.',
+                  style: TextStyle(color: _muted, fontSize: 12)),
+              const SizedBox(height: 10),
+              if (loading)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(
+                      child: Column(children: [
+                    SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: _amber)),
+                    SizedBox(height: 10),
+                    Text('در حال خواندن از دزدگیر...', style: TextStyle(color: _muted, fontSize: 13)),
+                  ])),
+                )
+              else
+                Flexible(
+                  child: ListView(shrinkWrap: true, children: [
+                    for (int i = 0; i < 10; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(children: [
+                          Expanded(
+                            child: TextField(
+                              controller: ctrls[i],
+                              keyboardType: i >= 4 ? TextInputType.phone : TextInputType.number,
+                              textDirection: i >= 3 ? TextDirection.ltr : TextDirection.rtl,
+                              obscureText: i == 3,
+                              maxLength: i == 3 ? 4 : i >= 4 ? 13 : 5,
+                              style: const TextStyle(color: _text),
+                              decoration: InputDecoration(
+                                  labelText: rows[i][0], suffixText: rows[i][1].isEmpty ? null : rows[i][1], counterText: ''),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              final v = ctrls[i].text.trim();
+                              final n = int.tryParse(v);
+                              if (i == 0 && (n == null || n > 255)) return _bad('۰ تا ۲۵۵');
+                              if (i == 1 && (n == null || n < 1 || n > 255)) return _bad('۱ تا ۲۵۵');
+                              if (i == 2 && (n == null || n < 1 || n > 65535)) return _bad('۱ تا ۶۵۵۳۵');
+                              if (i == 3 && !RegExp(r'^\d{4}$').hasMatch(v)) return _bad('۴ رقم');
+                              if (i >= 4 && v.isNotEmpty && !RegExp(r'^\+?\d{4,12}$').hasMatch(v)) return _bad('شماره درست نیست');
+                              c.saveAlarmSetting(i, v);
+                            },
+                            child: Text(i >= 4 && ctrls[i].text.trim().isEmpty ? 'پاک' : 'ذخیره'),
+                          ),
+                        ]),
+                      ),
+                  ]),
+                ),
+            ]);
+          }),
+        ),
+      ),
+      isScrollControlled: true,
+    ).whenComplete(w.dispose);
+  }
+
+  void _bad(String t) => Get.snackbar('عدد درست نیست', t, colorText: _text);
+
   /// تنظیمات نصاب: خاموش شدن پنل، برگشت به تنظیمات پروگرم
   void _installerSheet(BuildContext context) {
     final dark = TextEditingController(text: c.darkSec.value >= 0 ? '${c.darkSec.value}' : '');
@@ -514,6 +613,14 @@ class Sim12Screen extends StatelessWidget {
                 child: const Text('شماره سیمکارت پنل (برای پیامک)'),
               ),
               const SizedBox(height: 6),
+              ElevatedButton(
+                onPressed: () {
+                  Get.back();
+                  _alarmSettingsSheet();
+                },
+                child: const Text('تنظیمات دزدگیر (زمان‌ها، رمز، شماره‌ها)'),
+              ),
+              const SizedBox(height: 6),
               OutlinedButton(
                 onPressed: () {
                   Get.back();
@@ -539,9 +646,6 @@ class Sim12Screen extends StatelessWidget {
                 },
                 child: const Text('برگشت به تنظیمات پروگرم'),
               ),
-              const SizedBox(height: 8),
-              const Text('زمان‌های دزدگیر، رمز و شماره‌های پیامک / تماس در مرحله‌ی بعد اضافه می‌شود.',
-                  style: TextStyle(color: _muted, fontSize: 12)),
             ]),
           ),
         ),
