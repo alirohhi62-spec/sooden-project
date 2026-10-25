@@ -379,7 +379,7 @@ class Sim12Screen extends StatelessWidget {
           const Expanded(
               child: Text('حالت نصاب: هر کلید را بزن تا اسم و زمانش عوض شود', style: TextStyle(color: _amberText, fontSize: 12))),
           TextButton(onPressed: () => _installerSheet(context), child: const Text('تنظیمات', style: TextStyle(color: _amber))),
-          TextButton(onPressed: () => c.setInstaller(false), child: const Text('خروج ✕', style: TextStyle(color: _amber))),
+          TextButton(onPressed: () => c.setInstaller(false), child: const Text('خروج از نصاب', style: TextStyle(color: _amber))),
         ]),
       );
 
