@@ -427,7 +427,7 @@ class Sd23Screen extends StatelessWidget {
     );
   }
 
-  /// ۱۲ اقتصادی: چیدمان روی شیشه (از نقشه‌ی ۱۳۴۴×۸۹۶ مالک، داخل قاب 96..1247 × 96..799)؛ سه سناریو در یک خط
+  /// ۱۲ اقتصادی: چیدمان روی شیشه (از نقشه‌ی ۱۳۴۴×۸۹۶ مالک، بخش کلیدها 180..1164 × 180..730)؛ سه سناریو در یک خط
   static const Map<int, List<double>> _e12Box = {
     0: [228, 217, 413, 288], 1: [931, 217, 1116, 288], 2: [228, 352, 413, 422], 3: [931, 352, 1116, 422],
     4: [228, 486, 413, 556], 5: [931, 486, 1116, 556], 6: [228, 620, 413, 690], 7: [931, 620, 1116, 690],
@@ -435,7 +435,7 @@ class Sd23Screen extends StatelessWidget {
     20: [444, 596, 578, 660], 21: [606, 596, 740, 660], 22: [765, 596, 899, 660],
   };
   Widget _e12Panel() {
-    const x0 = 96.0, y0 = 96.0, fw = 1151.0, fh = 703.0;
+    const x0 = 180.0, y0 = 180.0, fw = 984.0, fh = 550.0;   // the keys' area of the glass (bigger keys on the phone)
     return AspectRatio(
       aspectRatio: fw / fh,
       child: LayoutBuilder(builder: (context, bc) {
