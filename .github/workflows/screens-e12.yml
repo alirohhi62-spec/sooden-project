@@ -1,0 +1,32 @@
+# عکس اپ با دو پنل (۱۲ اقتصادی): test/e12_test.dart، نتیجه در شاخه‌ی shots-e12
+name: Screens E12
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'test/e12_test.dart'
+permissions:
+  contents: write
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --update-goldens test/e12_test.dart 2>&1 | tee test-log.txt
+      - name: Push the pictures to the shots-e12 branch
+        if: always()
+        run: |
+          mkdir -p /tmp/shots && cp -r test/goldens/e12_*.png test-log.txt /tmp/shots/ 2>/dev/null || true
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git checkout --orphan shots-e12
+          git rm -rf . -q
+          cp /tmp/shots/* . 2>/dev/null || true
+          git add -A
+          git commit -qm "screens ${GITHUB_SHA}" || true
+          git push -f origin shots-e12

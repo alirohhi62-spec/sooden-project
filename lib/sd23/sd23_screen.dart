@@ -344,6 +344,7 @@ class Sd23Screen extends StatelessWidget {
               c.flashing.length;
               c.labels.length;
               c.iconIds.length;
+              if (c.model.value == 'e12') return _e12Panel();
               // پنل کوچک (مثل شش پل: فقط کلیدهای ۱ تا ۸ را فرستاده): فقط همان کلیدها، دو ستون
               final small = c.layKnown.value && [for (int k = 8; k < Sd23Controller.keyCount; k++) c.kindOf(k)].every((t) => t == '-');
               if (small) {
@@ -423,6 +424,38 @@ class Sd23Screen extends StatelessWidget {
                     ],
                   ),
       ),
+    );
+  }
+
+  /// ۱۲ اقتصادی: چیدمان روی شیشه (از نقشه‌ی ۱۳۴۴×۸۹۶ مالک، داخل قاب 96..1247 × 96..799)؛ سه سناریو در یک خط
+  static const Map<int, List<double>> _e12Box = {
+    0: [228, 217, 413, 288], 1: [931, 217, 1116, 288], 2: [228, 352, 413, 422], 3: [931, 352, 1116, 422],
+    4: [228, 486, 413, 556], 5: [931, 486, 1116, 556], 6: [228, 620, 413, 690], 7: [931, 620, 1116, 690],
+    8: [469, 285, 616, 355], 9: [727, 285, 874, 355], 10: [470, 419, 617, 489], 11: [728, 420, 875, 490],
+    20: [444, 596, 578, 660], 21: [606, 596, 740, 660], 22: [765, 596, 899, 660],
+  };
+  Widget _e12Panel() {
+    const x0 = 96.0, y0 = 96.0, fw = 1151.0, fh = 703.0;
+    return AspectRatio(
+      aspectRatio: fw / fh,
+      child: LayoutBuilder(builder: (context, bc) {
+        final sx = bc.maxWidth / fw, sy = bc.maxHeight / fh;
+        Widget box(List<double> b, Widget child, {bool line = true}) => Positioned(
+              left: (b[0] - x0) * sx,
+              top: (b[1] - y0) * sy,
+              width: (b[2] - b[0]) * sx,
+              height: (b[3] - b[1]) * sy,
+              child: Container(
+                decoration: line ? BoxDecoration(border: Border.all(color: const Color(0x66C8102E), width: .8)) : null,
+                child: child,
+              ),
+            );
+        return Stack(children: [
+          for (final e in _e12Box.entries)
+            box(e.value, FittedBox(fit: BoxFit.contain, child: SizedBox(width: 33 * (e.value[2] - e.value[0]) / (e.value[3] - e.value[1]), height: 33, child: _miniKey(e.key)))),
+          box(const [808, 552, 855, 589], const FittedBox(child: Icon(Icons.wifi, color: Color(0x99FFFFFF)))),
+        ]);
+      }),
     );
   }
 
