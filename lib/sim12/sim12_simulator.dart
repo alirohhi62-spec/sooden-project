@@ -22,6 +22,7 @@ class Sim12Simulator {
   Timer? _alT;
 
   int _dark = 60, _exitSec = 35, _fanMin = 15;
+  int _mOn = 0x7FFF & ~(1 << 3); // پل‌های مستر (همه‌ی پل‌های معمولی)
   final List<String> _acf = ['40', '30', '180', '1234', '09121111111', '09352222222', '', '09121111111', '', ''];
   static String _hx(int v, int n) => v.toRadixString(16).toUpperCase().padLeft(n, '0');
   // کلید ۴ سرویسی (هود)، S5 خروج؛ بقیه معمولی
@@ -29,7 +30,7 @@ class Sim12Simulator {
   String _cf(int n) {
     final t = _type(n);
     final s1 = t == 11 ? _exitSec & 255 : 0, s2 = t == 11 ? _exitSec >> 8 : 0, m = t == 3 ? _fanMin : 0;
-    return 'CF#${n.toString().padLeft(2, '0')}#${_hx(t, 2)}#${_hx(s1, 2)}#${_hx(s2, 2)}#${_hx(m, 2)}#000000#000000#0000';
+    return 'CF#${n.toString().padLeft(2, '0')}#${_hx(t, 2)}#${_hx(s1, 2)}#${_hx(s2, 2)}#${_hx(m, 2)}#${_hx(t == 2 ? _mOn : 0, 6)}#000000#0000';
   }
 
   void dispose() {
@@ -97,9 +98,15 @@ class Sim12Simulator {
       final n = int.tryParse(p[1]) ?? 0;
       final v = int.tryParse(p.length > 3 ? p[3] : '', radix: 16);
       final t = _type(n);
-      final ok = v != null && ((p[2] == 'T' && t == 11) || (p[2] == 'M' && t == 3 && v >= 1));
+      final ok = v != null && ((p[2] == 'T' && t == 11) || (p[2] == 'M' && t == 3 && v >= 1) || (p[2] == 'O' && t == 2));
       if (!ok) return _out('SET#${p[1]}#no');
-      if (p[2] == 'T') _exitSec = v; else _fanMin = v;
+      if (p[2] == 'T') {
+        _exitSec = v;
+      } else if (p[2] == 'O') {
+        _mOn = v & 0x7FFF & ~(1 << 3);
+      } else {
+        _fanMin = v;
+      }
       return _out(_cf(n));
     }
     if (s.startsWith('&K#')) {
@@ -161,7 +168,9 @@ class Sim12Simulator {
 
   void _press(int k) {
     if (k == 21) {
-      _on &= ~0x7FFF;
+      // مستر: اگر همه‌ی پل‌های مستر روشن‌اند همه خاموش، وگرنه همه روشن
+      final allOn = (_on & _mOn) == _mOn;
+      _on = allOn ? _on & ~_mOn : _on | _mOn;
       return;
     }
     if (k >= 23) {

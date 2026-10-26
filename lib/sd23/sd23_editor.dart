@@ -15,6 +15,7 @@ const Color _curtColor = Color(0xFFC9A7FF);
 ///   mode 'custom' سناریوی سفارشی روی کلید پنل (هر پل روشن / خاموش / بدون تغییر)
 ///   mode 'group'  گروه روی کلید پنل (پل‌های انتخابی)
 ///   mode 'phone'  سناریوی گوشی (مثل سفارشی، به‌علاوه‌ی تایمر)
+///   mode 'master' پل‌هایی که مستر روشن / خاموش می‌کند (نصاب)
 class Sd23MaskEditor extends StatefulWidget {
   final String mode;
 
@@ -42,7 +43,8 @@ class _Sd23MaskEditorState extends State<Sd23MaskEditor> {
   String _tm = 'N';
   String _origName = '';
 
-  bool get _group => widget.mode == 'group';
+  bool get _master => widget.mode == 'master';
+  bool get _group => widget.mode == 'group' || _master;
   bool get _phone => widget.mode == 'phone';
 
   @override
@@ -221,7 +223,9 @@ class _Sd23MaskEditorState extends State<Sd23MaskEditor> {
   Widget build(BuildContext context) {
     final title = _phone
         ? (_origName.isEmpty ? 'سناریوی جدید گوشی' : 'سناریوی «$_origName»')
-        : (_group ? 'گروه «${c.labelOf(widget.index)}»' : 'سناریوی «${c.labelOf(widget.index)}»');
+        : _master
+            ? 'پل‌های مستر «${c.labelOf(widget.index)}»'
+            : (_group ? 'گروه «${c.labelOf(widget.index)}»' : 'سناریوی «${c.labelOf(widget.index)}»');
     final rows = <Widget>[];
     if (_group) {
       for (final k in _poles) {
@@ -281,7 +285,7 @@ class _Sd23MaskEditorState extends State<Sd23MaskEditor> {
                 maxLength: _phone ? 9 : 20,
                 style: const TextStyle(color: _text),
                 decoration: InputDecoration(
-                  labelText: _phone ? 'اسم سناریو' : (_group ? 'اسم گروه' : 'اسم سناریو'),
+                  labelText: _phone ? 'اسم سناریو' : (_master ? 'اسم کلید مستر' : (_group ? 'اسم گروه' : 'اسم سناریو')),
                   counterStyle: const TextStyle(color: _muted),
                 ),
               ),
@@ -289,7 +293,9 @@ class _Sd23MaskEditorState extends State<Sd23MaskEditor> {
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
               child: Text(
-                  _group
+                  _master
+                      ? 'پل‌هایی را که مستر روشن و خاموش کند تیک بزنید. با لمس مستر: اگر همه روشن‌اند همه خاموش، وگرنه همه روشن.'
+                      : _group
                       ? 'پل‌های این گروه را انتخاب کنید. با لمس کلید روی پنل: همه با هم روشن، یا اگر یکی روشن است همه خاموش.'
                       : 'برای هر پل: روشن، خاموش یا «—» (بدون تغییر).',
                   style: const TextStyle(color: _muted, fontSize: 11.5, height: 1.6)),

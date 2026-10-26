@@ -431,6 +431,16 @@ class Sim12Screen extends StatelessWidget {
                 },
                 child: const Text('ذخیره اسم'),
               ),
+              if (k == 21 && cf != null && cf.type == 2 && c.installer.value) ...[
+                const SizedBox(height: 10),
+                OutlinedButton(
+                  onPressed: () {
+                    Get.back();
+                    _editScenario(21);
+                  },
+                  child: const Text('انتخاب پل‌های مستر'),
+                ),
+              ],
               if (cf == null && c.installer.value)
                 const Padding(
                   padding: EdgeInsets.only(top: 10),
@@ -1065,13 +1075,16 @@ class Sim12Screen extends StatelessWidget {
       Get.snackbar('صبر کن', 'تنظیمات سناریو هنوز از پنل نرسیده', colorText: _text);
       return;
     }
-    final group = cf.type == 15;
+    final master = cf.type == 2;
+    final group = cf.type == 15 || master;
+    if (master && !c.installer.value) return;
     if (cf.type != 14 && !group) {
       Get.snackbar('این سناریو ثابت است', 'پل‌های این سناریو فقط با پروگرمر عوض می‌شود', colorText: _text);
       return;
     }
     // ۰ بدون تغییر، ۱ روشن، ۲ خاموش
-    final st = [for (int j = 0; j < 15; j++) (cf.on >> j) & 1 == 1 ? 1 : (!group && (cf.off >> j) & 1 == 1) ? 2 : 0];
+    final onm = master && cf.on == 0 ? 0x7FFF : cf.on;
+    final st = [for (int j = 0; j < 15; j++) (onm >> j) & 1 == 1 ? 1 : (!group && (cf.off >> j) & 1 == 1) ? 2 : 0];
     Get.bottomSheet(
       Directionality(
         textDirection: TextDirection.rtl,
@@ -1098,7 +1111,7 @@ class Sim12Screen extends StatelessWidget {
             decoration: const BoxDecoration(color: Color(0xFF14151A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text('پل‌های ${c.nameOf(k)}', style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w700)),
-              Text(group ? 'گروه: با زدن سناریو پل‌های انتخاب‌شده با هم روشن یا خاموش می‌شوند' : 'با زدن سناریو: روشن‌ها روشن و خاموش‌ها خاموش می‌شوند',
+              Text(master ? 'مستر: پل‌هایی که «روشن» زده شوند با مستر روشن و خاموش می‌شوند (اگر همه روشن‌اند همه خاموش، وگرنه همه روشن)' : group ? 'گروه: با زدن سناریو پل‌های انتخاب‌شده با هم روشن یا خاموش می‌شوند' : 'با زدن سناریو: روشن‌ها روشن و خاموش‌ها خاموش می‌شوند',
                   style: const TextStyle(color: _muted, fontSize: 12)),
               const SizedBox(height: 10),
               Flexible(

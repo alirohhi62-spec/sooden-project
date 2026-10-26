@@ -826,6 +826,9 @@ class Sd23Screen extends StatelessWidget {
     if (t == 'S' || t == 'Q') {
       btn = 'ویرایش';
       onBtn = () => Get.to(() => Sd23MaskEditor(mode: t == 'S' ? 'custom' : 'group', index: k));
+    } else if (t == 'M' && c.installer.value && cfk != null) {
+      btn = 'پل‌های مستر';
+      onBtn = () => Get.to(() => Sd23MaskEditor(mode: 'master', index: k));
     } else if ((t == 'X' || t == 'Z') && cfk != null) {
       final s = cfk.secs16;
       btn = s >= 60 && s % 60 == 0 ? '${Sd23Controller.faNum(s ~/ 60)} دقیقه' : '${Sd23Controller.faNum(s)} ثانیه';

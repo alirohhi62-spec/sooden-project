@@ -1263,11 +1263,11 @@ class Sd23Controller extends GetxController {
     _write('C${_two(k + 1)}', exp, () => setValue(k, f, v, digits: f == 'T' ? 4 : 2));
   }
 
-  /// پل‌های سناریوی سفارشی یا گروه
+  /// پل‌های سناریوی سفارشی یا گروه یا مستر
   void saveMasks(int k, int on, int off) {
     final c = cf[k];
     if (c == null) return;
-    final isGroup = kindOf(k) == 'Q';
+    final isGroup = kindOf(k) == 'Q' || kindOf(k) == 'M';
     final exp = '${_hx(c.type, 2)}#${_hx(c.sec1, 2)}#${_hx(c.sec2, 2)}#${_hx(c.minutes, 2)}#${_hx(on, 6)}#${_hx(isGroup ? 0 : off, 6)}';
     _write('C${_two(k + 1)}', exp, () {
       setValue(k, 'O', on, digits: 6);

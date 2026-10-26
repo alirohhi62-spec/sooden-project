@@ -13,6 +13,14 @@ class Sd23Simulator {
       if (t == 'T' || t == 'O') _min[k] = 10;
       if (t == 'U' || t == 'W') _s1[k] = 6;
     }
+    // مستر: پیش‌فرض همه‌ی پل‌های معمولی
+    for (int k = 0; k < 23; k++) {
+      if (lay[k] == 'M') {
+        for (final i in _kind('L')) {
+          _onm[k] |= 1 << i;
+        }
+      }
+    }
   }
 
   final String model;
@@ -238,8 +246,9 @@ class Sd23Simulator {
     switch (t) {
       case 'M':
         {
-          final anyOn = _kind('L').any(_isOn);
-          for (final i in _kind('L')) {
+          final ps = [for (int i = 0; i < 20; i++) if (((_onm[k] >> i) & 1) == 1) i];
+          final anyOn = ps.any(_isOn);
+          for (final i in ps) {
             _set(i, !anyOn);
           }
           return true;

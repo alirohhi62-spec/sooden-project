@@ -562,7 +562,7 @@ class Sim12Controller extends GetxController {
     return polesOn > 0;
   }
 
-  /// پل‌های یک سناریو: روشن‌ها و خاموش‌ها (پل ۱ تا ۱۵)
+  /// پل‌های یک سناریو: روشن‌ها و خاموش‌ها (پل ۱ تا ۱۵)؛ گروه و مستر فقط روشن‌ها (پل‌های خودشان)
   void saveScenario(int k, int on, int off) {
     if (smsMode) {
       _say('تغییر سناریو فقط با وای‌فای', 'err');
@@ -572,7 +572,7 @@ class Sim12Controller extends GetxController {
     String h(int v) => v.toRadixString(16).toUpperCase().padLeft(6, '0');
     _expect('C$n');
     _sendWifi('Set#$n#O#${h(on)}#');
-    if ((cf[k]?.type ?? 14) != 15) Timer(const Duration(milliseconds: 350), () => _sendWifi('Set#$n#F#${h(off)}#'));
+    if ((cf[k]?.type ?? 14) == 14) Timer(const Duration(milliseconds: 350), () => _sendWifi('Set#$n#F#${h(off)}#'));
   }
 
   // ---------- پرده: درصد باز بودن (از زمان حرکت؛ آخرین مقدار روی گوشی) ----------
