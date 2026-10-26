@@ -21,6 +21,41 @@ const Color _amber = Color(0xFFE0A800);
 const Color _amberBg = Color(0xFF3A2F12);
 const Color _amberText = Color(0xFFFFD98A);
 
+/// پنجره‌ها و کادرهای این صفحه تیره‌اند: نوشته‌ی داخل کادرها روشن، کادر کمی روشن‌تر از زمینه (خوانا)
+ThemeData _dk() {
+  final b = Theme.of(Get.context!);
+  return b.copyWith(
+    brightness: Brightness.dark,
+    colorScheme: b.colorScheme.copyWith(
+        brightness: Brightness.dark, primary: _amber, onPrimary: Colors.black, surface: _card, onSurface: _text, onSurfaceVariant: _muted),
+    textTheme: b.textTheme.apply(bodyColor: _text, displayColor: _text),
+    textSelectionTheme: const TextSelectionThemeData(cursorColor: _amber, selectionColor: Color(0x66E0A800), selectionHandleColor: _amber),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(backgroundColor: _amber, foregroundColor: Colors.black)),
+    textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: _amberText)),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(foregroundColor: _amberText, side: const BorderSide(color: _amber))),
+  );
+}
+
+/// کادر نوشتن: زمینه کمی روشن‌تر، نوشته و عنوان روشن
+const OutlineInputBorder _fieldBorder = OutlineInputBorder(borderSide: BorderSide(color: _line), borderRadius: BorderRadius.all(Radius.circular(10)));
+InputDecoration _f(InputDecoration d) => d.copyWith(
+      filled: true,
+      fillColor: const Color(0xFF24252B),
+      labelStyle: const TextStyle(color: _muted),
+      floatingLabelStyle: const TextStyle(color: _amberText),
+      hintStyle: const TextStyle(color: Color(0xFF8C8D95)),
+      helperStyle: const TextStyle(color: _muted),
+      suffixStyle: const TextStyle(color: _muted),
+      counterStyle: const TextStyle(color: _muted),
+      border: _fieldBorder,
+      enabledBorder: _fieldBorder,
+      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: _amber, width: 1.5), borderRadius: BorderRadius.all(Radius.circular(10))),
+    );
+
+Future<T?> _sheet<T>(Widget w, {bool isScrollControlled = false}) =>
+    Get.bottomSheet<T>(Theme(data: _dk(), child: w), isScrollControlled: isScrollControlled);
+Future<T?> _dlg<T>(Widget w) => Get.dialog<T>(Theme(data: _dk(), child: w));
+
 /// جای هر کلید روی عکس پنل (عکس ۲۰۰۰ × ۱۴۸۱)
 const List<List<double>> _xy = [
   [1693, 440], [1250, 440], [1693, 560], [1250, 560], [1693, 685], [1250, 685], //
@@ -407,7 +442,7 @@ class Sim12Screen extends StatelessWidget {
       if (cf != null && (t == 11 || t == 12)) ['T', t == 11 ? 'زمان سناریوی خروج' : 'زمان سناریوی خواب', 'ثانیه', cf.seconds, 0, 65535],
     ];
     final ctrls = [for (final x in times) TextEditingController(text: '${x[3]}')];
-    Get.bottomSheet(
+    _sheet(
       Directionality(
         textDirection: TextDirection.rtl,
         child: Container(
@@ -422,7 +457,7 @@ class Sim12Screen extends StatelessWidget {
                 controller: name,
                 maxLength: 20,
                 style: const TextStyle(color: _text),
-                decoration: const InputDecoration(labelText: 'اسم کلید', hintText: 'مثلاً لوستر سالن'),
+                decoration: _f(const InputDecoration(labelText: 'اسم کلید', hintText: 'مثلاً لوستر سالن')),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -455,10 +490,10 @@ class Sim12Screen extends StatelessWidget {
                       controller: ctrls[i],
                       keyboardType: TextInputType.number,
                       style: const TextStyle(color: _text),
-                      decoration: InputDecoration(
+                      decoration: _f(InputDecoration(
                           labelText: times[i][1] as String,
                           suffixText: times[i][2] as String,
-                          helperText: '${Sim12Controller.faNum(times[i][4] as int)} تا ${Sim12Controller.faNum(times[i][5] as int)}'),
+                          helperText: '${Sim12Controller.faNum(times[i][4] as int)} تا ${Sim12Controller.faNum(times[i][5] as int)}')),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -512,7 +547,7 @@ class Sim12Screen extends StatelessWidget {
     c.acf.clear();
     c.loadAlarmSettings();
     final w = ever<List<String>>(c.acf, (_) => fill());
-    Get.bottomSheet(
+    _sheet(
       Directionality(
         textDirection: TextDirection.rtl,
         child: Container(
@@ -520,7 +555,7 @@ class Sim12Screen extends StatelessWidget {
           constraints: BoxConstraints(maxHeight: MediaQuery.of(Get.context!).size.height * .85),
           decoration: const BoxDecoration(color: Color(0xFF14151A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
           child: Obx(() {
-            final loading = c.acf.length < 10;
+            final loading = c.acfLoading.value && c.acf.length < 10, failed = !c.acfLoading.value && c.acf.length < 10;
             return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               const Text('تنظیمات دزدگیر', style: TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w700)),
               const Text('هر مورد جدا ذخیره می‌شود؛ «ثبت شد» وقتی است که دزدگیر همان مقدار را برگرداند.',
@@ -535,6 +570,19 @@ class Sim12Screen extends StatelessWidget {
                     SizedBox(height: 10),
                     Text('در حال خواندن از دزدگیر...', style: TextStyle(color: _muted, fontSize: 13)),
                   ])),
+                )
+              else if (failed)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(children: [
+                    Text(c.acfError.value.isEmpty ? 'دزدگیر جواب نداد.' : c.acfError.value,
+                        textAlign: TextAlign.center, style: const TextStyle(color: _amberText, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    const Text('میکروی دزدگیر و میکروی اصلی (M4) باید با پروگرمر نسخه 2.8.1 یا بعد پروگرم شده باشند.',
+                        textAlign: TextAlign.center, style: TextStyle(color: _muted, fontSize: 12)),
+                    const SizedBox(height: 10),
+                    ElevatedButton(onPressed: c.loadAlarmSettings, child: const Text('دوباره خواندن')),
+                  ]),
                 )
               else
                 Flexible(
@@ -551,8 +599,8 @@ class Sim12Screen extends StatelessWidget {
                               obscureText: i == 3,
                               maxLength: i == 3 ? 4 : i >= 4 ? 13 : 5,
                               style: const TextStyle(color: _text),
-                              decoration: InputDecoration(
-                                  labelText: rows[i][0], suffixText: rows[i][1].isEmpty ? null : rows[i][1], counterText: ''),
+                              decoration: _f(InputDecoration(
+                                  labelText: rows[i][0], suffixText: rows[i][1].isEmpty ? null : rows[i][1], counterText: '')),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -586,7 +634,7 @@ class Sim12Screen extends StatelessWidget {
   /// تنظیمات نصاب: خاموش شدن پنل، برگشت به تنظیمات پروگرم
   void _installerSheet(BuildContext context) {
     final dark = TextEditingController(text: c.darkSec.value >= 0 ? '${c.darkSec.value}' : '');
-    Get.bottomSheet(
+    _sheet(
       Directionality(
         textDirection: TextDirection.rtl,
         child: Container(
@@ -600,7 +648,7 @@ class Sim12Screen extends StatelessWidget {
                 controller: dark,
                 keyboardType: TextInputType.number,
                 style: const TextStyle(color: _text),
-                decoration: const InputDecoration(labelText: 'خاموش شدن پنل بعد از بی‌کاری (۰ = هرگز)', suffixText: 'ثانیه'),
+                decoration: _f(const InputDecoration(labelText: 'خاموش شدن پنل بعد از بی‌کاری (۰ = هرگز)', suffixText: 'ثانیه')),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -634,7 +682,7 @@ class Sim12Screen extends StatelessWidget {
               OutlinedButton(
                 onPressed: () {
                   Get.back();
-                  Get.dialog(Directionality(
+                  _dlg(Directionality(
                     textDirection: TextDirection.rtl,
                     child: AlertDialog(
                       backgroundColor: _card,
@@ -775,7 +823,7 @@ class Sim12Screen extends StatelessWidget {
     }
     final t = TextEditingController();
     final keep = false.obs;
-    Get.dialog(Directionality(
+    _dlg(Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
         backgroundColor: _card,
@@ -789,6 +837,7 @@ class Sim12Screen extends StatelessWidget {
             maxLength: 6,
             textAlign: TextAlign.center,
             style: const TextStyle(color: _text, fontSize: 22, letterSpacing: 8),
+            decoration: _f(const InputDecoration(counterText: '')),
           ),
           Obx(() => CheckboxListTile(
                 value: keep.value,
@@ -816,7 +865,7 @@ class Sim12Screen extends StatelessWidget {
 
   void _pickZones(BuildContext context) {
     final z = (c.armedZones.value == 0 || c.armedZones.value == 7 ? 1 : c.armedZones.value).obs;
-    Get.dialog(Directionality(
+    _dlg(Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
         backgroundColor: _card,
@@ -1085,7 +1134,7 @@ class Sim12Screen extends StatelessWidget {
     // ۰ بدون تغییر، ۱ روشن، ۲ خاموش
     final onm = master && cf.on == 0 ? 0x7FFF : cf.on;
     final st = [for (int j = 0; j < 15; j++) (onm >> j) & 1 == 1 ? 1 : (!group && (cf.off >> j) & 1 == 1) ? 2 : 0];
-    Get.bottomSheet(
+    _sheet(
       Directionality(
         textDirection: TextDirection.rtl,
         child: StatefulBuilder(builder: (context, setState) {
@@ -1164,7 +1213,7 @@ class Sim12Screen extends StatelessWidget {
       return;
     }
     final t = TextEditingController(text: '${cf.seconds}');
-    Get.dialog(Directionality(
+    _dlg(Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
         backgroundColor: _card,
@@ -1174,7 +1223,7 @@ class Sim12Screen extends StatelessWidget {
           autofocus: true,
           keyboardType: TextInputType.number,
           style: const TextStyle(color: _text),
-          decoration: const InputDecoration(suffixText: 'ثانیه', helperText: '۰ تا ۶۵۵۳۵ (از ۶۰ ثانیه به بالا با لمس لغو می‌شود)'),
+          decoration: _f(const InputDecoration(suffixText: 'ثانیه', helperText: '۰ تا ۶۵۵۳۵ (از ۶۰ ثانیه به بالا با لمس لغو می‌شود)')),
         ),
         actions: [
           TextButton(onPressed: Get.back, child: const Text('انصراف')),
@@ -1237,7 +1286,7 @@ class Sim12Screen extends StatelessWidget {
 
   void _editNumber(BuildContext context) {
     final t = TextEditingController(text: c.panelNumber.value);
-    Get.dialog(Directionality(
+    _dlg(Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
         backgroundColor: _card,
@@ -1248,7 +1297,7 @@ class Sim12Screen extends StatelessWidget {
           keyboardType: TextInputType.phone,
           textDirection: TextDirection.ltr,
           style: const TextStyle(color: _text, fontSize: 18),
-          decoration: const InputDecoration(hintText: '09xxxxxxxxx', hintStyle: TextStyle(color: _muted)),
+          decoration: _f(const InputDecoration(hintText: '09xxxxxxxxx', hintStyle: TextStyle(color: _muted))),
         ),
         actions: [
           TextButton(onPressed: Get.back, child: const Text('انصراف')),

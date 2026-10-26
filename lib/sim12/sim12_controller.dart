@@ -653,6 +653,7 @@ class Sim12Controller extends GetxController {
   /// خروج، ورود، آژیر (ثانیه)، رمز، پیامک ۱ تا ۳، تماس ۱ تا ۳
   final RxList<String> acf = <String>[].obs;
   final RxBool acfLoading = false.obs;
+  final RxString acfError = ''.obs;   // چرا خواندن تنظیمات دزدگیر نشد
   String? _acfExpect; // [شماره‌ی فیلد, مقدار] منتظر تأیید با خواندن دوباره
   int _acfField = -1;
   Timer? _acfTimer;
@@ -663,12 +664,14 @@ class Sim12Controller extends GetxController {
       return;
     }
     acfLoading.value = true;
+    acfError.value = '';
     _sendWifi('&ACR');
     _acfTimer?.cancel();
     _acfTimer = Timer(const Duration(seconds: 15), () {
       if (acfLoading.value) {
         acfLoading.value = false;
         _acfField = -1;
+        acfError.value = 'دزدگیر در ۱۵ ثانیه جواب نداد.';
         _say('دزدگیر جواب نداد', 'err');
       }
     });
@@ -697,6 +700,12 @@ class Sim12Controller extends GetxController {
   }
 
   void _onAcs(String r) {
+    if (_acfField < 0 && acfLoading.value && r == 'busy') {   // خواندن تنظیمات: پنل الان نمی‌تواند بپرسد
+      acfLoading.value = false;
+      _acfTimer?.cancel();
+      acfError.value = 'پنل مشغول است (مثلاً پیامک یا تماس در جریان است)؛ چند ثانیه بعد دوباره بزن.';
+      return;
+    }
     if (_acfField < 0) return;
     if (r == 'ok') {
       loadAlarmSettings(); // «ثبت شد» فقط وقتی دزدگیر همان مقدار را برگرداند
