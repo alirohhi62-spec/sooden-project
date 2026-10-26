@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../sd23/sd23_screen.dart' show Sd23OwnOnly;
+import '../sd23/sd23_controller.dart';
 import '../sd23/sd23_vacation.dart';
 import 'panel12_controller.dart';
 import 'panel12_screen.dart';
@@ -34,7 +35,17 @@ class Panel12VacationTabHost extends StatelessWidget {
         Offstage(offstage: !showOld, child: home),
         if (sim) const Sim12VacationPage(),
         if (sim) const Panel12Overlay(),
-        if (sd) const Sd23OwnOnly(what: 'برنامه‌ی مسافرت', child: Sd23VacationPage()),
+        if (sd && Sd23Controller.instance.hasVac.value) const Sd23OwnOnly(what: 'برنامه‌ی مسافرت', child: Sd23VacationPage()),
+        if (sd && !Sd23Controller.instance.hasVac.value)
+          const ColoredBox(
+            color: _bg,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('این پنل برنامه‌ی مسافرت ندارد.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xB8F2F4F7), fontSize: 14)),
+              ),
+            ),
+          ),
         if (sd) const Panel12Overlay(),
         if (showNew) const Panel12VacationScreen(),
         if (showNew) const Panel12Overlay(),

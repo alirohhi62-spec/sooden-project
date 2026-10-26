@@ -476,10 +476,10 @@ class Sd23PhonePage extends StatelessWidget {
             ),
             Expanded(
               child: !c.hasSettings.value
-                  ? const Center(
+                  ? Center(
                       child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('این پنل هنوز سناریوی گوشی ندارد (فریمور پنل باید به‌روز شود).',
+                        padding: const EdgeInsets.all(24),
+                        child: Text(c.hasCf.value ? 'این پنل سناریوی گوشی ندارد.' : 'این پنل هنوز سناریوی گوشی ندارد (فریمور پنل باید به‌روز شود).',
                             textAlign: TextAlign.center, style: TextStyle(color: _muted, fontSize: 13)),
                       ),
                     )

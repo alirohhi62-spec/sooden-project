@@ -344,6 +344,15 @@ class Sd23Screen extends StatelessWidget {
               c.flashing.length;
               c.labels.length;
               c.iconIds.length;
+              // پنل کوچک (مثل شش پل: فقط کلیدهای ۱ تا ۸ را فرستاده): فقط همان کلیدها، دو ستون
+              final small = c.layKnown.value && [for (int k = 8; k < Sd23Controller.keyCount; k++) c.kindOf(k)].every((t) => t == '-');
+              if (small) {
+                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: [for (final k in [0, 2, 4, 6]) _miniKey(k)])),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: [for (final k in [1, 3, 5, 7]) _miniKey(k)])),
+                ]);
+              }
               return IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

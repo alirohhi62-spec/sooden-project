@@ -171,6 +171,7 @@ class Sd23Controller extends GetxController {
     'ac': 'دزدگیردار سفارشی',
     'ac6': 'دزدگیردار سفارشی',
     'p20': 'پنل ۲۰ پل',
+    'p6': 'شش پل',
     'p14': 'پنل پل + سناریو',
     'pc': 'پنل ۲۰ پل سفارشی',
     // پنل‌های ۱ تا ۴ پل (پنل دوم شبکه)
@@ -189,6 +190,12 @@ class Sd23Controller extends GetxController {
   final RxBool hasAlarm = false.obs;
   final RxBool hasRemote = false.obs;
   final RxBool hasSettings = false.obs;
+
+  /// پنل تنظیمات کلیدها را می‌دهد (S1، یا C1 برای پنل بدون سناریوی گوشی مثل شش پل)
+  final RxBool hasCf = false.obs;
+
+  /// پنل برنامه‌ی مسافرت دارد (V0 = ندارد)
+  final RxBool hasVac = true.obs;
   final RxInt bits = 0.obs;
   final RxInt alarm = 0.obs;
   final RxList<String> labels = List<String>.filled(keyCount, '').obs;
@@ -248,7 +255,7 @@ class Sd23Controller extends GetxController {
   String _oLay = '-' * keyCount, _oModel = '';
   int _oBits = 0;
   List<String> _oLabels = List<String>.filled(keyCount, ''), _oIcons = List<String>.filled(keyCount, '');
-  bool _oAlarm = false, _oSettings = false;
+  bool _oAlarm = false, _oSettings = false, _oCf = false, _oVac = true;
   final RxMap<int, String> panelNames = <int, String>{}.obs;
   bool get peerView => panel.value == 1;
 
@@ -536,14 +543,14 @@ class Sd23Controller extends GetxController {
 
   /// بعد از رسیدن چیدمان: تنظیمات سناریوها (و در حالت نصاب بقیه) پرسیده می‌شود
   void _askSettings() {
-    if (!hasSettings.value) return;
+    if (!hasCf.value) return;
     for (int k = 0; k < keyCount; k++) {
       if (groupOf(k) == gScn || (installer.value && 'UWDPY'.contains(kindOf(k)) && kindOf(k) != '-')) {
         _queue('@M_CF#${_two(k + 1)}');
       }
     }
     if (installer.value) _queue('@M_CF#AL');
-    if (!phoneLoaded.value) loadPhone();
+    if (hasSettings.value && !phoneLoaded.value) loadPhone();
   }
 
   void _queue(String cmd) {
@@ -664,6 +671,8 @@ class Sd23Controller extends GetxController {
     hasAlarm.value = false;
     hasRemote.value = false;
     hasSettings.value = false;
+    hasCf.value = false;
+    hasVac.value = true;
     bits.value = 0;
     alarm.value = 0;
     labels.assignAll(List<String>.filled(keyCount, ''));
@@ -704,8 +713,11 @@ class Sd23Controller extends GetxController {
       hasAlarm.value = m.contains('A1');
       hasRemote.value = m.contains('R1');
       final had = hasSettings.value;
+      final hadCf = hasCf.value;
       hasSettings.value = m.contains('S1');
-      if (!had && hasSettings.value && layKnown.value) _askSettings();
+      hasCf.value = hasSettings.value || m.contains('C1');
+      hasVac.value = !m.contains('V0');
+      if (((!had && hasSettings.value) || (!hadCf && hasCf.value)) && layKnown.value) _askSettings();
       final peer = m.contains('P1');
       if (peer && !hasPeer.value) _queue('@M_P2');
       hasPeer.value = peer;
@@ -717,7 +729,7 @@ class Sd23Controller extends GetxController {
         // زمان باقی‌مانده‌ی سناریوهای در حال اجرا از پنل
         for (int k = 0; k < keyCount; k++) {
           final changed = ((was ^ v) >> k) & 1;
-          if (changed == 1 && 'XZTO'.contains(kindOf(k)) && kindOf(k) != '-' && hasSettings.value) {
+          if (changed == 1 && 'XZTO'.contains(kindOf(k)) && kindOf(k) != '-' && hasCf.value) {
             _queue('@M_CF#${_two(k + 1)}');
           }
         }
@@ -1027,6 +1039,8 @@ class Sd23Controller extends GetxController {
     if (m.startsWith('CAP#')) {
       _oAlarm = m.contains('A1');
       _oSettings = m.contains('S1');
+      _oCf = _oSettings || m.contains('C1');
+      _oVac = !m.contains('V0');
       hasPeer.value = m.contains('P1');
       return true;
     }
@@ -1053,6 +1067,8 @@ class Sd23Controller extends GetxController {
       _oIcons = iconIds.toList();
       _oAlarm = hasAlarm.value;
       _oSettings = hasSettings.value;
+      _oCf = hasCf.value;
+      _oVac = hasVac.value;
       panel.value = 1;
       lay.value = _peerLay;
       bits.value = _peerBits;
@@ -1073,6 +1089,8 @@ class Sd23Controller extends GetxController {
       iconIds.assignAll(ic);
       hasAlarm.value = false;
       hasSettings.value = false;
+      hasCf.value = false;
+      hasVac.value = true;
       entry.value = '';
       buf.value = '';
       _send('@M_P2');
@@ -1092,6 +1110,8 @@ class Sd23Controller extends GetxController {
     iconIds.assignAll(_oIcons);
     hasAlarm.value = _oAlarm;
     hasSettings.value = _oSettings;
+    hasCf.value = _oCf;
+    hasVac.value = _oVac;
     if (!tabs.contains(tab.value) && tabs.isNotEmpty) tab.value = tabs.first;
   }
 
