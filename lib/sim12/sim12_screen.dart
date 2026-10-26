@@ -568,7 +568,7 @@ class Sim12Screen extends StatelessWidget {
                       child: Column(children: [
                     SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: _amber)),
                     SizedBox(height: 10),
-                    Text('در حال خواندن از دزدگیر...', style: TextStyle(color: _muted, fontSize: 13)),
+                    Text('در حال خواندن از دزدگیر... (تا ۳۰ ثانیه)', style: TextStyle(color: _muted, fontSize: 13)),
                   ])),
                 )
               else if (failed)
@@ -578,7 +578,7 @@ class Sim12Screen extends StatelessWidget {
                     Text(c.acfError.value.isEmpty ? 'دزدگیر جواب نداد.' : c.acfError.value,
                         textAlign: TextAlign.center, style: const TextStyle(color: _amberText, fontSize: 13)),
                     const SizedBox(height: 6),
-                    const Text('میکروی دزدگیر و میکروی اصلی (M4) باید با پروگرمر نسخه 2.8.1 یا بعد پروگرم شده باشند.',
+                    const Text('میکروی دزدگیر و میکروی اصلی (M4) باید با پروگرمر نسخه 2.8.8 یا بعد پروگرم شده باشند.',
                         textAlign: TextAlign.center, style: TextStyle(color: _muted, fontSize: 12)),
                     const SizedBox(height: 10),
                     ElevatedButton(onPressed: c.loadAlarmSettings, child: const Text('دوباره خواندن')),

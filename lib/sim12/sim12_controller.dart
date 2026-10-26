@@ -667,11 +667,12 @@ class Sim12Controller extends GetxController {
     acfError.value = '';
     _sendWifi('&ACR');
     _acfTimer?.cancel();
-    _acfTimer = Timer(const Duration(seconds: 15), () {
+    // پنل اگر جواب کامل نرسد خودش تا ۳ بار دوباره از دزدگیر می‌پرسد (هر بار ۱۰ ثانیه)
+    _acfTimer = Timer(const Duration(seconds: 35), () {
       if (acfLoading.value) {
         acfLoading.value = false;
         _acfField = -1;
-        acfError.value = 'دزدگیر در ۱۵ ثانیه جواب نداد.';
+        acfError.value = 'دزدگیر در ۳۵ ثانیه جواب نداد.';
         _say('دزدگیر جواب نداد', 'err');
       }
     });
