@@ -89,6 +89,44 @@ class HomeNet {
     }
   }
 
+  /// مثل askIp، با علت برای گزارش: 'no-connect' (به پنل وصل نشد)، 'no-reply' (وصل شد، جواب نداد)، 'ok'
+  static Future<(String why, (String, String, String)? r)> askIpWhy(String ip, int port) async {
+    Socket? s;
+    try {
+      try {
+        s = await Socket.connect(ip, port, timeout: const Duration(milliseconds: 1500));
+      } catch (e) {
+        return ('no-connect', null);
+      }
+      final done = Completer<String?>();
+      final buf = <int>[];
+      final sub = s.listen((d) {
+        buf.addAll(d);
+        final t = utf8.decode(buf, allowMalformed: true);
+        final i = t.indexOf('%');
+        final j = i >= 0 ? t.indexOf('%', i + 1) : -1;
+        if (j > i && !done.isCompleted) done.complete(t.substring(i + 1, j));
+      }, onError: (_) {
+        if (!done.isCompleted) done.complete(null);
+      }, onDone: () {
+        if (!done.isCompleted) done.complete(null);
+      });
+      s.add(utf8.encode('@M_IP'));
+      final r = await done.future.timeout(const Duration(seconds: 2), onTimeout: () => null);
+      await sub.cancel();
+      if (r == null) return ('no-reply', null);
+      final p = r.split('+');
+      final mac = p.isNotEmpty ? p[0].trim() : '';
+      final pip = p.length > 1 ? p[1].trim() : '';
+      final rt = p.length > 2 ? p.sublist(2).join('+').replaceAll('\u0000', '').trim() : '';
+      return ('ok', (mac, RegExp(r'^\d+\.\d+\.\d+\.\d+$').hasMatch(pip) && pip != '0.0.0.0' ? pip : '', rt));
+    } catch (_) {
+      return ('no-reply', null);
+    } finally {
+      s?.destroy();
+    }
+  }
+
   static Future<bool> isPanel(String ip, Location l) async {
     final m = await probe(ip, l.port ?? 6269);
     return m != null && _tail(m) == _tail(l.mac);

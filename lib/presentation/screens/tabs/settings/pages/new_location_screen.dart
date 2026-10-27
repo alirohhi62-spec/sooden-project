@@ -290,6 +290,17 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
           help: 'رمز وای‌فای منزل. با دکمه‌ی QR کنار اسم مودم هم می‌شود بارکد وای‌فای مودم را خواند.'),
       _field('آی‌پی پنل روی مودم', l.panelIpOnModemController, hint: 'بعد از تست اتصال پر می‌شود', latin: true, enabled: false, dashed: true),
       if (l.modemMsg != null) _msg(l.modemMsg!, l.modemOk),
+      if (l.modemDiag.isNotEmpty)
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: const Color(0x14FFFFFF), border: Border.all(color: _line)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('گزارش تست (برای بررسی)', style: TextStyle(color: _muted, fontSize: 12, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            for (final t in l.modemDiag) Text(t, style: const TextStyle(color: _faint, fontSize: 11.5, height: 1.6)),
+          ]),
+        ),
       _button(l.mSetModemIpLoading ? 'در حال وصل شدن پنل به مودم... (تا ۲۰ ثانیه)' : 'تست اتصال',
           onTap: l.mSetModemIpLoading
               ? null

@@ -46,6 +46,10 @@ void main() {
     ip = '192.168.1.37    ';
     r = await HomeNet.askIp('127.0.0.1', srv.port);
     expect(r?.$2, '192.168.1.37');
+    final w = await HomeNet.askIpWhy('127.0.0.1', srv.port);
+    expect(w.$1, 'ok');
+    expect(w.$2?.$2, '192.168.1.37');
+    expect((await HomeNet.askIpWhy('127.0.0.1', 1)).$1, 'no-connect');
     await srv.close();
   }, timeout: const Timeout(Duration(seconds: 30)));
 

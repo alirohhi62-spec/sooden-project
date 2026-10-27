@@ -129,6 +129,10 @@ class NewLocationLogic extends BaseLogic {
   /// @M_S=Repeat
   /// @M_S=Error
   void _onEventSetModemHappened(EventBusModel event) {
+    if (mSetModemIpLoading) {
+      _d('جواب پنل: ${'${event.data}'.replaceAll('\n', ' ').trim()}');
+      update();
+    }
     // «Repeat»: پنل به مودم وصل شده ولی هنوز آی‌پی نگرفته؛ پرسیدن از پنل ادامه دارد
     if (mSetModemIpLoading && '${event.data}'.contains(SocketConstants.feedbackSetModemNeedToTryAgain)) return;
     SetModemUsecaseImpl().setModemData(locationToEdit!, event.data!, (bool status, String data) {
@@ -162,10 +166,22 @@ class NewLocationLogic extends BaseLogic {
     final cmd = joinCommand(modemNameController.text, modemPasswordController.text);
     sendMessageToSocket(cmd);
     _logger('setModemConfig - send ', cmd);
+    modemDiag.clear();
+    _diagT0 = DateTime.now();
+    _d('فرمان اتصال به مودم «${modemNameController.text}» فرستاده شد');
     _pollJoin(++_joinRun);
   }
 
   int _joinRun = 0;
+
+  /// گزارش تست اتصال مودم (زیر پیام نشان داده می‌شود): هر تلاش، روی کدام وای‌فای، پنل چه گفت
+  final List<String> modemDiag = [];
+  DateTime _diagT0 = DateTime.now();
+  void _d(String s) {
+    final sec = DateTime.now().difference(_diagT0).inSeconds;
+    modemDiag.add('$sec ث: $s');
+    if (modemDiag.length > 24) modemDiag.removeAt(0);
+  }
 
   /// ماژول وای‌فای وقتی به مودم وصل می‌شود کانال وای‌فای خودش را عوض می‌کند و گوشی چند ثانیه از وای‌فای پنل
   /// قطع می‌شود (جواب @M_S گم می‌شود): تا ۴۵ ثانیه از خود پنل پرسیده می‌شود که روی مودم آی‌پی گرفت یا نه
@@ -180,17 +196,22 @@ class NewLocationLogic extends BaseLogic {
     for (int i = 0; i < 10 && mSetModemIpLoading && run == _joinRun; i++) {
       final w = await ConnectionWrapperImpl.currentWifi();
       await WifiBind.set(true);                           // وای‌فای ممکن است دوباره وصل شده باشد (شبکه‌ی تازه)
+      final wTxt = w.isEmpty ? 'وای‌فای: ندارد/نامعلوم' : 'وای‌فای: $w';
+      final bTxt = WifiBind.lastOk == true ? '' : ' (بستن به وای‌فای نشد)';
       String? found;
       if (w.isNotEmpty && w == name) {
         found = await HomeNet.findPanel(l);                 // گوشی خودش به وای‌فای منزل رفته: پنل در شبکه‌ی منزل
+        _d('$wTxt$bTxt، گشتن شبکه‌ی منزل: ${found == null ? 'پنل پیدا نشد' : 'پنل در $found'}');
       } else {
-        final r = await HomeNet.askIp('192.168.4.1', port);
+        final (why, r) = await HomeNet.askIpWhy('192.168.4.1', port);
         if (r != null) {
           answered = true;
           lastRouter = r.$3;
           if (r.$2.isNotEmpty) found = r.$2;
         }
+        _d('$wTxt$bTxt، 192.168.4.1: ${why == 'no-connect' ? 'وصل نشد' : why == 'no-reply' ? 'وصل شد ولی جواب نداد' : 'جواب داد، آی‌پی روی مودم: ${r!.$2.isEmpty ? 'ندارد' : r.$2}، مودم: ${r.$3.isEmpty ? '-' : r.$3}'}');
       }
+      update();
       if (!mSetModemIpLoading || run != _joinRun) return;
       if (found != null) {
         l.panelIpOnModem = found;
