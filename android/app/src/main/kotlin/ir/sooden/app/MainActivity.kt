@@ -40,25 +40,10 @@ class MainActivity : FlutterActivity() {
                 }
             } else if (call.method == "bindWifi") {
                 // وای‌فای پنل اینترنت ندارد: اندروید ارتباط را از داده‌ی همراه می‌فرستد. فقط این اپ به وای‌فای بسته می‌شود
-                // (بقیه‌ی برنامه‌ها مثل همیشه)؛ on=false: آزاد
-                val on = call.argument<Boolean>("on") ?: false
-                try {
-                    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-                    if (!on) {
-                        cm.bindProcessToNetwork(null)
-                        result.success(true)
-                    } else {
-                        var wifi: Network? = null
-                        @Suppress("DEPRECATION")
-                        for (n in cm.allNetworks) {
-                            val c = cm.getNetworkCapabilities(n)
-                            if (c != null && c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) wifi = n
-                        }
-                        result.success(wifi != null && cm.bindProcessToNetwork(wifi))
-                    }
-                } catch (e: Exception) {
-                    result.success(false)
-                }
+                // (بقیه‌ی برنامه‌ها مثل همیشه). وای‌فای قطع و دوباره وصل شود (ماژول پنل کانال عوض می‌کند، یا گوشی
+                // به وای‌فای دیگری می‌رود): به وای‌فای تازه بسته می‌شود؛ on=false: آزاد
+                wantWifi = call.argument<Boolean>("on") ?: false
+                result.success(applyBind())
             } else if (call.method == "wifiSettings") {
                 // صفحه‌ی وای‌فای گوشی (برای وصل شدن به وای‌فای پنل)
                 try {
@@ -82,6 +67,59 @@ class MainActivity : FlutterActivity() {
                 stopReceiver()
             }
         })
+    }
+
+    private var wantWifi = false
+    private var bound: Network? = null
+    private var wifiCb: ConnectivityManager.NetworkCallback? = null
+
+    private fun cm() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+    private fun wifiNow(): Network? {
+        val c = cm()
+        var wifi: Network? = null
+        @Suppress("DEPRECATION")
+        for (n in c.allNetworks) {
+            val cap = c.getNetworkCapabilities(n)
+            if (cap != null && cap.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) wifi = n
+        }
+        return wifi
+    }
+
+    private fun applyBind(): Boolean {
+        return try {
+            watchWifi()
+            val c = cm()
+            if (!wantWifi) {
+                c.bindProcessToNetwork(null); bound = null; true
+            } else {
+                val w = wifiNow()
+                if (w == null) { c.bindProcessToNetwork(null); bound = null; false }
+                else { val ok = c.bindProcessToNetwork(w); bound = if (ok) w else null; ok }
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun watchWifi() {
+        if (wifiCb != null) return
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) { runOnUiThread { if (wantWifi) applyBind() } }
+            override fun onLost(network: Network) {
+                runOnUiThread {
+                    if (network == bound) { try { cm().bindProcessToNetwork(null) } catch (e: Exception) {}; bound = null }
+                    if (wantWifi) applyBind()
+                }
+            }
+        }
+        try {
+            val req = android.net.NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build()
+            cm().registerNetworkCallback(req, cb)
+            wifiCb = cb
+        } catch (e: Exception) {
+        }
     }
 
     private fun startReceiver() {

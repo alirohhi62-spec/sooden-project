@@ -19,6 +19,7 @@ import 'package:get/get.dart';
 import '../../core/di/app_binding.dart';
 import '../../core/utils/home_net.dart';
 import '../../core/utils/loc_store.dart';
+import '../../core/utils/wifi_bind.dart';
 import '../../data/data_sources/local_data_sources/database/model/location.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/connection_requests_impl.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/wrappers/connection_wraper/connection_wraper_impl.dart';
@@ -174,14 +175,21 @@ class NewLocationLogic extends BaseLogic {
     final name = modemNameController.text;
     final port = l.port ?? 6269;
     await Future.delayed(const Duration(seconds: 8));
+    bool answered = false;
+    String lastRouter = '';
     for (int i = 0; i < 10 && mSetModemIpLoading && run == _joinRun; i++) {
       final w = await ConnectionWrapperImpl.currentWifi();
+      await WifiBind.set(true);                           // وای‌فای ممکن است دوباره وصل شده باشد (شبکه‌ی تازه)
       String? found;
       if (w.isNotEmpty && w == name) {
         found = await HomeNet.findPanel(l);                 // گوشی خودش به وای‌فای منزل رفته: پنل در شبکه‌ی منزل
       } else {
         final r = await HomeNet.askIp('192.168.4.1', port);
-        if (r != null && r.$2.isNotEmpty && (r.$3.isEmpty || r.$3 == name || name.startsWith(r.$3))) found = r.$2;
+        if (r != null) {
+          answered = true;
+          lastRouter = r.$3;
+          if (r.$2.isNotEmpty) found = r.$2;
+        }
       }
       if (!mSetModemIpLoading || run != _joinRun) return;
       if (found != null) {
@@ -199,8 +207,10 @@ class NewLocationLogic extends BaseLogic {
     if (mSetModemIpLoading && run == _joinRun) {
       mSetModemIpLoading = false;
       modemOk = false;
-      modemMsg = 'پنل به مودم وصل نشد. اسم و رمز مودم را دوباره بررسی کنید (بزرگی و کوچکی حروف مهم است) و مودم روشن و نزدیک پنل باشد؛ '
-          'گوشی به وای‌فای پنل وصل بماند و دوباره «تست اتصال» را بزنید.';
+      modemMsg = answered
+          ? 'پنل جواب داد ولی روی مودم${lastRouter.isNotEmpty ? ' «$lastRouter»' : ''} آی‌پی نگرفت. اسم و رمز مودم را دوباره بررسی کنید '
+              '(بزرگی و کوچکی حروف مهم است)، مودم روشن و نزدیک پنل باشد و وای‌فای ۲.۴ گیگاهرتز مودم روشن باشد (ماژول پنل ۵ گیگ را نمی‌بیند).'
+          : 'در این مدت پنل جواب نداد. گوشی را دوباره به وای‌فای پنل وصل کنید و «تست اتصال» را بزنید.';
       update();
     }
   }

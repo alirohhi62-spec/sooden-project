@@ -8,16 +8,11 @@ import 'globals.dart';
 class WifiBind {
   WifiBind._();
   static const _ch = MethodChannel('sooden/sms');
-  static bool? _now;
-
+  /// هر بار دوباره اعمال می‌شود (شبکه‌ی وای‌فای ممکن است عوض شده باشد)؛ عوض شدن وای‌فای را خود اندروید هم دنبال می‌کند
   static Future<void> set(bool on) async {
-    if (_now == on) return;
     try {
       final ok = await _ch.invokeMethod<bool>('bindWifi', {'on': on});
-      _now = on && ok == true ? true : (on ? null : false);
       doLogGlobal('wifi_bind', 'set', 'on $on -> $ok');
-    } catch (_) {
-      _now = null;
-    }
+    } catch (_) {}
   }
 }
