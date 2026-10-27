@@ -169,7 +169,7 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
         Text(noAnswer ? 'پنل جواب نداد' : 'توجه', style: const TextStyle(color: Color(0xFFFF8A96), fontSize: 15, fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         if (noAnswer) ...[
-          _bullet('گوشی را به وای‌فای پنل (sooden-...) وصل کنید.'),
+          _bullet('گوشی را به وای‌فای پنل (\u2066sooden-...\u2069) وصل کنید.'),
           _bullet('وای‌فای پنل روشن است؟ کلید وای‌فای پنل (در بیشتر پنل‌ها سناریوی سمت راست) را ۵ تا ۷ ثانیه نگه دارید.'),
           _bullet('گوشی را نزدیک پنل ببرید و «دوباره» را بزنید.'),
           const SizedBox(height: 12),
@@ -195,7 +195,7 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
       );
 
   Widget _placeCard(NewLocationLogic l, bool has) {
-    return _card(1, 'مشخصات مکان', has ? 'برای اتصال دوباره به همین پنل، «اتصال دوباره» را بزنید.' : 'اول گوشی را به وای‌فای پنل (sooden-...) وصل کنید، بعد یک اسم برای این مکان بنویسید و «ذخیره و اتصال به پنل» را بزنید.', [
+    return _card(1, 'مشخصات مکان', has ? 'برای اتصال دوباره به همین پنل، «اتصال دوباره» را بزنید.' : 'اول گوشی را به وای‌فای پنل (\u2066sooden-...\u2069) وصل کنید، بعد یک اسم برای این مکان بنویسید و «ذخیره و اتصال به پنل» را بزنید.', [
       _field('نام مکان', l.locationNameController, hint: 'مثلاً منزل', help: 'هر اسمی که دوست دارید؛ مثلاً منزل، ویلا یا مغازه. در «مکان‌های من» با همین اسم دیده می‌شود.'),
       InkWell(
         onTap: () => setState(() => l.showMore = !l.showMore),
