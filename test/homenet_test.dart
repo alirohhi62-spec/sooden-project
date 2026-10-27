@@ -53,6 +53,23 @@ void main() {
     await srv.close();
   }, timeout: const Timeout(Duration(seconds: 30)));
 
+  test('the panel black box (@M_DBG / @M_DBS)', () async {
+    final srv = await ServerSocket.bind('127.0.0.1', 0);
+    srv.listen((c) {
+      c.listen((d) {
+        final q = utf8.decode(d);
+        if (q.contains('@M_DBG')) c.add(utf8.encode(r'$DBG#R1B0E1J1W3P1F0Q0C1S0A1I0$$DBL#+CWJAP:3|FAIL$'));
+        if (q.contains('@M_DBS')) c.add(utf8.encode(r'$DBS#-$$DBT#$'));
+      });
+    });
+    final live = await HomeNet.askDbg('127.0.0.1', srv.port, '@M_DBG');
+    expect(live, ['DBG: R1B0E1J1W3P1F0Q0C1S0A1I0', 'DBL: +CWJAP:3|FAIL']);
+    final saved = await HomeNet.askDbg('127.0.0.1', srv.port, '@M_DBS');
+    expect(saved, ['DBS: -', 'DBT: ']);
+    expect(await HomeNet.askDbg('127.0.0.1', 1, '@M_DBG'), isNull);
+    await srv.close();
+  }, timeout: const Timeout(Duration(seconds: 30)));
+
   test('UPnP: external address and port mapping (718 conflict -> delete, add again)', () async {
     final calls = <String>[];
     bool mapped = false;

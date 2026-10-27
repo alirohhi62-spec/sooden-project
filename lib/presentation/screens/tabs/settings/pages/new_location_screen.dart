@@ -301,6 +301,11 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
             for (final t in l.modemDiag) Text(t, style: const TextStyle(color: _faint, fontSize: 11.5, height: 1.6)),
           ]),
         ),
+      if (!l.mSetModemIpLoading)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _button(l.dbgBusy ? 'در حال خواندن گزارش پنل...' : 'خواندن گزارش پنل', onTap: l.dbgBusy ? null : l.readPanelReport),
+        ),
       _button(l.mSetModemIpLoading ? 'در حال وصل شدن پنل به مودم... (تا ۲۰ ثانیه)' : 'تست اتصال',
           onTap: l.mSetModemIpLoading
               ? null

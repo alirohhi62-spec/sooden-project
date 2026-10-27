@@ -177,6 +177,23 @@ class NewLocationLogic extends BaseLogic {
   /// گزارش تست اتصال مودم (زیر پیام نشان داده می‌شود): هر تلاش، روی کدام وای‌فای، پنل چه گفت
   final List<String> modemDiag = [];
   DateTime _diagT0 = DateTime.now();
+  /// گزارش جعبه‌سیاه پنل (شش پل آزمایشی): همین الان (@M_DBG) و ذخیره‌شده ۷۵ ثانیه بعد از آخرین اتصال به مودم (@M_DBS)
+  bool dbgBusy = false;
+  Future<void> readPanelReport() async {
+    if (dbgBusy) return;
+    dbgBusy = true;
+    update();
+    await WifiBind.set(true);
+    final port = locationToEdit?.port ?? 6269;
+    if (modemDiag.isEmpty) _diagT0 = DateTime.now();
+    final live = await HomeNet.askDbg('192.168.4.1', port, '@M_DBG');
+    _d(live == null ? 'گزارش پنل (الان): جواب نداد' : 'گزارش پنل (الان): ${live.join('  ')}');
+    final saved = await HomeNet.askDbg('192.168.4.1', port, '@M_DBS');
+    _d(saved == null ? 'گزارش پنل (ذخیره‌شده): جواب نداد' : 'گزارش پنل (ذخیره‌شده): ${saved.join('  ')}');
+    dbgBusy = false;
+    update();
+  }
+
   void _d(String s) {
     final sec = DateTime.now().difference(_diagT0).inSeconds;
     modemDiag.add('$sec ث: $s');

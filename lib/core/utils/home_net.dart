@@ -127,6 +127,34 @@ class HomeNet {
     }
   }
 
+  /// گزارش جعبه‌سیاه پنل (نسخه‌ی آزمایشی شش پل): فرمان @M_DBG یا @M_DBS، جواب دو قاب $...$ ؛ null = جواب نداد
+  static Future<List<String>?> askDbg(String ip, int port, String cmd) async {
+    Socket? s;
+    try {
+      s = await Socket.connect(ip, port, timeout: const Duration(milliseconds: 1500));
+      final done = Completer<List<String>?>();
+      final buf = <int>[];
+      final sub = s.listen((d) {
+        buf.addAll(d);
+        final t = utf8.decode(buf, allowMalformed: true);
+        final fr = RegExp(r'\$(DB[GLST])#([^$]*)\$').allMatches(t).map((m) => '${m.group(1)}: ${m.group(2)}').toList();
+        if (fr.length >= 2 && !done.isCompleted) done.complete(fr);
+      }, onError: (_) {
+        if (!done.isCompleted) done.complete(null);
+      }, onDone: () {
+        if (!done.isCompleted) done.complete(null);
+      });
+      s.add(utf8.encode(cmd));
+      final r = await done.future.timeout(const Duration(seconds: 3), onTimeout: () => null);
+      await sub.cancel();
+      return r;
+    } catch (_) {
+      return null;
+    } finally {
+      s?.destroy();
+    }
+  }
+
   static Future<bool> isPanel(String ip, Location l) async {
     final m = await probe(ip, l.port ?? 6269);
     return m != null && _tail(m) == _tail(l.mac);
