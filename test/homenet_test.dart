@@ -31,6 +31,24 @@ void main() {
     await srv.close();
   }, timeout: const Timeout(Duration(seconds: 30)));
 
+  test('the panel says its address on the modem (@M_IP)', () async {
+    final srv = await ServerSocket.bind('127.0.0.1', 0);
+    var ip = '0.0.0.0         ';
+    srv.listen((c) {
+      c.listen((d) {
+        if (utf8.decode(d).contains('@M_IP')) c.add(utf8.encode('%f0:24:f9:cb:2f:f9+$ip+aramdaftar\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000%'));
+      });
+    });
+    var r = await HomeNet.askIp('127.0.0.1', srv.port);
+    expect(r?.$1, 'f0:24:f9:cb:2f:f9');
+    expect(r?.$2, '');                    // not on the modem yet
+    expect(r?.$3, 'aramdaftar');
+    ip = '192.168.1.37    ';
+    r = await HomeNet.askIp('127.0.0.1', srv.port);
+    expect(r?.$2, '192.168.1.37');
+    await srv.close();
+  }, timeout: const Timeout(Duration(seconds: 30)));
+
   test('UPnP: external address and port mapping (718 conflict -> delete, add again)', () async {
     final calls = <String>[];
     bool mapped = false;

@@ -4,6 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.provider.Telephony
 import android.telephony.SmsManager
@@ -32,6 +35,27 @@ class MainActivity : FlutterActivity() {
                     }
                     sm.sendTextMessage(to, null, text, null, null)
                     result.success(true)
+                } catch (e: Exception) {
+                    result.success(false)
+                }
+            } else if (call.method == "bindWifi") {
+                // وای‌فای پنل اینترنت ندارد: اندروید ارتباط را از داده‌ی همراه می‌فرستد. فقط این اپ به وای‌فای بسته می‌شود
+                // (بقیه‌ی برنامه‌ها مثل همیشه)؛ on=false: آزاد
+                val on = call.argument<Boolean>("on") ?: false
+                try {
+                    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                    if (!on) {
+                        cm.bindProcessToNetwork(null)
+                        result.success(true)
+                    } else {
+                        var wifi: Network? = null
+                        @Suppress("DEPRECATION")
+                        for (n in cm.allNetworks) {
+                            val c = cm.getNetworkCapabilities(n)
+                            if (c != null && c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) wifi = n
+                        }
+                        result.success(wifi != null && cm.bindProcessToNetwork(wifi))
+                    }
                 } catch (e: Exception) {
                     result.success(false)
                 }

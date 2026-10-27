@@ -16,6 +16,7 @@ import 'connection_manager.dart';
 import 'manage_getting_config/manage_getting_config_impl.dart';
 import 'manage_gps/location_enable_manager.dart';
 import 'observe_connection/observe_connection.dart';
+import 'package:bms/core/utils/wifi_bind.dart';
 
 class ConnectionManagerImpl implements ConnectionManager {
   late final mSocket = Socket.instance;
@@ -88,8 +89,10 @@ class ConnectionManagerImpl implements ConnectionManager {
       await _getIpPortFromLocation(_mLocation);
     } else if (_mDataModel.newLocationDataModel?.ipStatic != null &&
         (_mDataModel.newLocationDataModel?.ipStatic?.isNotEmpty ?? false)) {
+      await WifiBind.set(false);
       _getIpPortFromIpStatic();
     } else {
+      await WifiBind.set(true);                      // مکان جدید: گوشی روی وای‌فای پنل (192.168.4.1)
       _getIpPortFromConst();
     }
   }

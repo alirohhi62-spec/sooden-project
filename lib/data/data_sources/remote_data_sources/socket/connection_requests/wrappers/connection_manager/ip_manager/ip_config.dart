@@ -3,6 +3,7 @@ import 'package:network_info_plus/network_info_plus.dart';
 import '../../../../../../../../core/utils/communication_constants.dart';
 import '../../../../../../../../core/utils/globals.dart';
 import '../../../../../../../../core/utils/loc_store.dart';
+import '../../../../../../../../core/utils/wifi_bind.dart';
 import '../../../../../../../enums/connection_error_code.dart';
 import '../../../../../../local_data_sources/database/model/location.dart';
 import '../../../result.dart';
@@ -40,6 +41,8 @@ class IpConfig {
       ip = getIpStatic(location);
       LocStore.via = 'static';
     }
+    // با وای‌فای پنل یا مودم: ارتباط از وای‌فای (نه داده‌ی همراه)؛ از بیرون: آزاد
+    await WifiBind.set(LocStore.via == 'panel' || LocStore.via == 'modem');
     return ip;
   }
 

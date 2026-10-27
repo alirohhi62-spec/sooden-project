@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:bms/core/eventbus/event_bus_const.dart';
 import 'package:bms/core/eventbus/event_bus_model.dart';
 import 'package:bms/core/utils/globals.dart';
+import 'package:bms/core/utils/communication_constants.dart';
 import 'package:bms/core/utils/util.dart';
 import 'package:bms/data/data_sources/remote_data_sources/socket/connection_requests/result.dart';
 import 'package:bms/data/data_sources/remote_data_sources/socket/connection_requests/wrappers/new_connection_wraper/new_location_data_model.dart';
@@ -127,6 +128,8 @@ class NewLocationLogic extends BaseLogic {
   /// @M_S=Repeat
   /// @M_S=Error
   void _onEventSetModemHappened(EventBusModel event) {
+    // «Repeat»: پنل به مودم وصل شده ولی هنوز آی‌پی نگرفته؛ پرسیدن از پنل ادامه دارد
+    if (mSetModemIpLoading && '${event.data}'.contains(SocketConstants.feedbackSetModemNeedToTryAgain)) return;
     SetModemUsecaseImpl().setModemData(locationToEdit!, event.data!, (bool status, String data) {
       modemOk = status;
       modemMsg = status ? 'پنل به مودم وصل شد.' : data;
@@ -158,15 +161,48 @@ class NewLocationLogic extends BaseLogic {
     final cmd = joinCommand(modemNameController.text, modemPasswordController.text);
     sendMessageToSocket(cmd);
     _logger('setModemConfig - send ', cmd);
-    // پنل تا ۲۰ ثانیه برای وصل شدن به مودم وقت دارد
-    Future.delayed(const Duration(seconds: 30), () {
-      if (mSetModemIpLoading) {
-        mSetModemIpLoading = false;
-        modemOk = false;
-        modemMsg = 'پاسخی از پنل نیامد. گوشی هنوز به وای‌فای پنل وصل است؟ دوباره «تست اتصال» را بزنید.';
-        update();
+    _pollJoin(++_joinRun);
+  }
+
+  int _joinRun = 0;
+
+  /// ماژول وای‌فای وقتی به مودم وصل می‌شود کانال وای‌فای خودش را عوض می‌کند و گوشی چند ثانیه از وای‌فای پنل
+  /// قطع می‌شود (جواب @M_S گم می‌شود): تا ۴۵ ثانیه از خود پنل پرسیده می‌شود که روی مودم آی‌پی گرفت یا نه
+  Future<void> _pollJoin(int run) async {
+    final l = locationToEdit;
+    if (l == null) return;
+    final name = modemNameController.text;
+    final port = l.port ?? 6269;
+    await Future.delayed(const Duration(seconds: 8));
+    for (int i = 0; i < 10 && mSetModemIpLoading && run == _joinRun; i++) {
+      final w = await ConnectionWrapperImpl.currentWifi();
+      String? found;
+      if (w.isNotEmpty && w == name) {
+        found = await HomeNet.findPanel(l);                 // گوشی خودش به وای‌فای منزل رفته: پنل در شبکه‌ی منزل
+      } else {
+        final r = await HomeNet.askIp('192.168.4.1', port);
+        if (r != null && r.$2.isNotEmpty && (r.$3.isEmpty || r.$3 == name || name.startsWith(r.$3))) found = r.$2;
       }
-    });
+      if (!mSetModemIpLoading || run != _joinRun) return;
+      if (found != null) {
+        l.panelIpOnModem = found;
+        _locationRepository.updateLocation(l);
+        panelIpOnModemController.text = found;
+        mSetModemIpLoading = false;
+        modemOk = true;
+        modemMsg = 'پنل به مودم وصل شد.';
+        update();
+        return;
+      }
+      await Future.delayed(const Duration(seconds: 4));
+    }
+    if (mSetModemIpLoading && run == _joinRun) {
+      mSetModemIpLoading = false;
+      modemOk = false;
+      modemMsg = 'پنل به مودم وصل نشد. اسم و رمز مودم را دوباره بررسی کنید (بزرگی و کوچکی حروف مهم است) و مودم روشن و نزدیک پنل باشد؛ '
+          'گوشی به وای‌فای پنل وصل بماند و دوباره «تست اتصال» را بزنید.';
+      update();
+    }
   }
 
   _storeModemData() {
