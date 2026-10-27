@@ -47,6 +47,24 @@ class LocStore {
     }
   }
 
+  /// داده‌ی یک مکان مشخص (نه لزوماً مکان فعلی)
+  static T? readFor<T>(int? locId, String base) {
+    try {
+      return GetStorage().read(locId == null ? base : 'loc${locId}_$base') as T?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static void writeFor(int? locId, String base, dynamic v) {
+    try {
+      GetStorage().write(locId == null ? base : 'loc${locId}_$base', v);
+    } catch (_) {}
+  }
+
+  /// این اتصال از کدام راه است: 'panel' وای‌فای خود پنل، 'modem' وای‌فای مودم همان مکان، 'static' از بیرون (آی‌پی استاتیک)
+  static String via = '';
+
   static void write(String base, dynamic v) {
     try {
       GetStorage().write(key(base), v);

@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:bms/core/utils/loc_store.dart';
 
 String wifi = 'sooden-3F2A';
 
@@ -26,6 +28,11 @@ Future<void> _setup(WidgetTester tester, {double h = 2340}) async {
     final b = f.readAsBytesSync();
     await (FontLoader('Roboto')..addFont(Future.value(ByteData.view(b.buffer)))).load();
   }
+  final icons = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+  if (icons.existsSync()) {
+    final b = icons.readAsBytesSync();
+    await (FontLoader('MaterialIcons')..addFont(Future.value(ByteData.view(b.buffer)))).load();
+  }
   tester.view.physicalSize = Size(1080, h);
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
@@ -35,6 +42,7 @@ Future<void> _setup(WidgetTester tester, {double h = 2340}) async {
   m.setMockMethodCallHandler(const MethodChannel('dev.fluttercommunity.plus/network_info'),
       (call) async => call.method == 'wifiName' ? '"$wifi"' : null);
   Get.reset();
+  await GetStorage.init();
 }
 
 Widget _app(Widget w) => GetMaterialApp(debugShowCheckedModeBanner: false, theme: ThemeData(fontFamily: 'dana'), home: w);
@@ -98,6 +106,9 @@ void main() {
     l.wifiMsg = NewLocationLogic.checkPanelWifi('@Soo_den"', '1234');
     l.modemOk = true;
     l.modemMsg = 'پنل به مودم وصل شد.';
+    LocStore.writeFor(2, 'net_upnp', 'ok');
+    LocStore.writeFor(2, 'net_cgnat', false);
+    l.showMore = true;
     l.update();
     await tester.pump(const Duration(milliseconds: 300));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/newloc_3_settings.png'));

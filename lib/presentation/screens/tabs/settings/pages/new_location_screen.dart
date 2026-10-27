@@ -88,7 +88,7 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
                   if (has)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-                      child: _button('goto_main'.tr, onTap: logic.goToMainClicked),
+                      child: _button('رفتن به صفحه اصلی', onTap: logic.goToMainClicked),
                     ),
                 ]),
               ),
@@ -169,14 +169,14 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
         Text(noAnswer ? 'پنل جواب نداد' : 'توجه', style: const TextStyle(color: Color(0xFFFF8A96), fontSize: 15, fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         if (noAnswer) ...[
-          _bullet('گوشی را به وای‌فای پنل (sooden-…) وصل کنید.'),
+          _bullet('گوشی را به وای‌فای پنل (sooden-...) وصل کنید.'),
           _bullet('وای‌فای پنل روشن است؟ کلید وای‌فای پنل (در بیشتر پنل‌ها سناریوی سمت راست) را ۵ تا ۷ ثانیه نگه دارید.'),
           _bullet('گوشی را نزدیک پنل ببرید و «دوباره» را بزنید.'),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(child: _button('دوباره', primary: true, onTap: l.checkConnection)),
             const SizedBox(width: 10),
-            Expanded(child: _button('تنظیمات وای‌فای گوشی', onTap: l.openWifiSettings)),
+            Expanded(child: _button('تنظیمات وای‌فای', onTap: l.openWifiSettings)),
           ]),
         ] else
           Text(l.connError!, style: const TextStyle(color: _text, fontSize: 13.5, height: 1.7)),
@@ -186,11 +186,16 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
 
   Widget _bullet(String t) => Padding(
         padding: const EdgeInsets.only(top: 3),
-        child: Text('•  $t', style: const TextStyle(color: _text, fontSize: 13.5, height: 1.7)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+              width: 6, height: 6, margin: const EdgeInsets.only(top: 10, left: 10),
+              decoration: const BoxDecoration(color: _text, shape: BoxShape.circle)),
+          Expanded(child: Text(t, style: const TextStyle(color: _text, fontSize: 13.5, height: 1.7))),
+        ]),
       );
 
   Widget _placeCard(NewLocationLogic l, bool has) {
-    return _card(1, 'مشخصات مکان', has ? 'برای اتصال دوباره به همین پنل، «اتصال دوباره» را بزنید.' : 'اول گوشی را به وای‌فای پنل (sooden-…) وصل کنید، بعد یک اسم برای این مکان بنویسید و «ذخیره و اتصال به پنل» را بزنید.', [
+    return _card(1, 'مشخصات مکان', has ? 'برای اتصال دوباره به همین پنل، «اتصال دوباره» را بزنید.' : 'اول گوشی را به وای‌فای پنل (sooden-...) وصل کنید، بعد یک اسم برای این مکان بنویسید و «ذخیره و اتصال به پنل» را بزنید.', [
       _field('نام مکان', l.locationNameController, hint: 'مثلاً منزل', help: 'هر اسمی که دوست دارید؛ مثلاً منزل، ویلا یا مغازه. در «مکان‌های من» با همین اسم دیده می‌شود.'),
       InkWell(
         onTap: () => setState(() => l.showMore = !l.showMore),
@@ -207,12 +212,17 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
             hint: '5.160.20.11',
             latin: true,
             keyboard: TextInputType.number,
-            help: 'فقط برای کنترل از بیرون منزل: آی‌پی اینترنت مودم که شرکت اینترنت داده است. اگر ندارید خالی بگذارید.'),
+            help: 'برای کنترل از بیرون منزل. لازم نیست خودتان بنویسید: هر بار که در منزل گوشی به وای‌فای مودم وصل است، '
+                'اپ آی‌پی اینترنت مودم را می‌خواند و اینجا ذخیره می‌کند.'),
+        if (l.outsideStatus != null) _msg(l.outsideStatus!, l.outsideOk),
         if (has) ...[
-          _button('ثبت آی‌پی استاتیک', onTap: () {
+          _field('آدرس سرور', l.serverAddrController,
+              hint: 'server.sooden.ir', latin: true, help: 'به‌زودی: اتصال از راه سرور سودن. فعلاً خالی بماند.'),
+          _field('رمز سرور', l.serverPassController, latin: true, obscure: true),
+          _button('ذخیره‌ی تنظیمات بیشتر', onTap: () {
             FocusManager.instance.primaryFocus?.unfocus();
             l.setStaticIpConfig();
-            Get.snackbar('', 'آی‌پی استاتیک ثبت شد.', titleText: const SizedBox(), colorText: _text, backgroundColor: const Color(0xE6202228));
+            Get.snackbar('', 'ذخیره شد.', titleText: const SizedBox(), colorText: _text, backgroundColor: const Color(0xE6202228));
           }),
           const SizedBox(height: 10),
         ],
@@ -223,7 +233,7 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
           child: Column(children: [
             SizedBox(width: 40, height: 40, child: CircularProgressIndicator(strokeWidth: 4, color: _red, backgroundColor: Color(0x22FFFFFF))),
             SizedBox(height: 12),
-            Text('در حال اتصال به پنل…', style: TextStyle(color: _muted, fontSize: 13.5)),
+            Text('در حال اتصال به پنل...', style: TextStyle(color: _muted, fontSize: 13.5)),
           ]),
         )
       else
@@ -237,7 +247,7 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
   Widget _panelWifiCard(NewLocationLogic l) {
     return _card(2, 'وای‌فای پنل', 'اختیاری: اسم و رمز وای‌فای خود پنل را عوض کنید. بعد از ثبت، گوشی را به وای‌فای تازه وصل کنید.', [
       _field('اسم وای‌فای', l.wifiNameController,
-          hint: 'sooden-3F2A', latin: true, help: 'هر حرفی (فارسی، انگلیسی، عدد، @ _ " و …)؛ تا ۳۲ حرف انگلیسی یا حدود ۱۶ حرف فارسی.'),
+          hint: 'sooden-3F2A', latin: true, help: 'هر حرفی (فارسی، انگلیسی، عدد، @ _ " و ...)؛ تا ۳۲ حرف انگلیسی یا حدود ۱۶ حرف فارسی.'),
       _field('رمز', l.wifiPasswordController,
           latin: true,
           obscure: !_showWifiPw,
@@ -280,7 +290,7 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
           help: 'رمز وای‌فای منزل. با دکمه‌ی QR کنار اسم مودم هم می‌شود بارکد وای‌فای مودم را خواند.'),
       _field('آی‌پی پنل روی مودم', l.panelIpOnModemController, hint: 'بعد از تست اتصال پر می‌شود', latin: true, enabled: false, dashed: true),
       if (l.modemMsg != null) _msg(l.modemMsg!, l.modemOk),
-      _button(l.mSetModemIpLoading ? 'در حال وصل شدن پنل به مودم… (تا ۲۰ ثانیه)' : 'تست اتصال',
+      _button(l.mSetModemIpLoading ? 'در حال وصل شدن پنل به مودم... (تا ۲۰ ثانیه)' : 'تست اتصال',
           onTap: l.mSetModemIpLoading
               ? null
               : () {
@@ -292,7 +302,12 @@ class _NewLocationScreenState extends State<NewLocationScreen> with WidgetsBindi
 
   Widget _msg(String t, bool ok) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
-        child: Text('${ok ? '✓' : '!'}  $t', style: TextStyle(color: ok ? _green : const Color(0xFFFF8A96), fontSize: 13, height: 1.6)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+              padding: const EdgeInsets.only(top: 2, left: 6),
+              child: Icon(ok ? Icons.check_circle_outline : Icons.error_outline, size: 18, color: ok ? _green : const Color(0xFFFF8A96))),
+          Expanded(child: Text(t, style: TextStyle(color: ok ? _green : const Color(0xFFFF8A96), fontSize: 13, height: 1.6))),
+        ]),
       );
 
   Widget _card(int n, String title, String guide, List<Widget> children) {

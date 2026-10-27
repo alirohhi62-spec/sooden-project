@@ -7,6 +7,7 @@ import 'package:network_info_plus/network_info_plus.dart';
 import '../../../../../../../core/eventbus/event_bus_const.dart';
 import '../../../../../../../core/eventbus/event_bus_model.dart';
 import '../../../../../../../core/utils/globals.dart';
+import '../../../../../../../core/utils/home_net.dart';
 import '../../../../../../../core/utils/loc_store.dart';
 import '../../../../../../enums/connection_error_code.dart';
 import '../../../../../../repositories/location_repository.dart';
@@ -130,6 +131,15 @@ class ConnectionWrapperImpl extends ConnectionWrapper {
       pick = last;
     }
     if (pick != null && pick.id != null && pick.id != last?.id) await repo.updateSelectedLocation(pick.id!);
+    // گوشی روی وای‌فای مودم همین مکان: آی‌پی پنل روی مودم (اگر عوض شده پیدا می‌شود)،
+    // بعد پشت صحنه آی‌پی اینترنت مودم و باز کردن پورت (UPnP) برای اتصال از بیرون
+    if (pick != null && wifi.isNotEmpty && wifi == pick.modemName && wifi != pick.panelWifiName) {
+      final p = pick;
+      try {
+        await HomeNet.checkLanIp(p, repo).timeout(const Duration(seconds: 8));
+      } catch (_) {}
+      Future.delayed(const Duration(seconds: 6), () => HomeNet.refreshOutside(p, repo));
+    }
     _mCurrLocations = pick;
     LocStore.set(pick?.id, pick?.name ?? '');
     _logger('_getUserSelectedLocation', 'wifi: $wifi, location: ${pick?.name} (auto ${LocStore.autoPicked})');

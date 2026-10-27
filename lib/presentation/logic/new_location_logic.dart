@@ -16,6 +16,8 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../core/di/app_binding.dart';
+import '../../core/utils/home_net.dart';
+import '../../core/utils/loc_store.dart';
 import '../../data/data_sources/local_data_sources/database/model/location.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/connection_requests_impl.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/wrappers/connection_wraper/connection_wraper_impl.dart';
@@ -39,6 +41,9 @@ class NewLocationLogic extends BaseLogic {
   TextEditingController panelIpOnModemController = TextEditingController();
 
   TextEditingController staticIpController = TextEditingController();
+  /// سرور (به‌زودی): برای هر مکان جدا روی گوشی
+  TextEditingController serverAddrController = TextEditingController();
+  TextEditingController serverPassController = TextEditingController();
   late UpdateDeviceUseCaseImpl updateDeviceUseCase;
   bool mSetModemIpLoading = false;
 
@@ -186,6 +191,8 @@ class NewLocationLogic extends BaseLogic {
       panelIpOnModemController.text = locationToEdit!.panelIpOnModem ?? '';
 
       staticIpController.text = locationToEdit!.staticIp ?? '';
+      serverAddrController.text = LocStore.readFor<String>(locationToEdit!.id, 'server_addr') ?? '';
+      serverPassController.text = LocStore.readFor<String>(locationToEdit!.id, 'server_pass') ?? '';
 
       update();
     }
@@ -249,7 +256,27 @@ class NewLocationLogic extends BaseLogic {
   setStaticIpConfig() {
     locationToEdit!.staticIp = staticIpController.text.trim();
     _locationRepository.updateLocation(locationToEdit!);
+    LocStore.writeFor(locationToEdit!.id, 'server_addr', serverAddrController.text.trim());
+    LocStore.writeFor(locationToEdit!.id, 'server_pass', serverPassController.text);
   }
+
+  /// وضعیت اتصال از بیرون منزل (آخرین بار که گوشی روی وای‌فای مودم بود)
+  String? get outsideStatus {
+    final id = locationToEdit?.id;
+    if (id == null) return null;
+    if (HomeNet.cgnatOf(id)) return 'شرکت اینترنت به این مودم آی‌پی واقعی نداده (آی‌پی مشترک)؛ کنترل از بیرون فقط با سرور ممکن است.';
+    switch (HomeNet.upnpOf(id)) {
+      case 'ok':
+        return 'پورت پنل روی مودم خودکار باز شد (UPnP)؛ از بیرون منزل با آی‌پی بالا وصل می‌شوید.';
+      case 'off':
+        return 'UPnP مودم خاموش است. در تنظیمات مودم (معمولاً بخش Advanced یا NAT) گزینه‌ی UPnP را روشن کنید تا اپ پورت پنل را خودش باز کند.';
+      case 'fail':
+        return 'مودم اجازه‌ی باز کردن پورت را نداد. پورت ${locationToEdit?.port ?? 6269} را در مودم به آی‌پی پنل (${locationToEdit?.panelIpOnModem ?? ''}) باز کنید.';
+    }
+    return null;
+  }
+
+  bool get outsideOk => HomeNet.upnpOf(locationToEdit?.id) == 'ok' && !HomeNet.cgnatOf(locationToEdit?.id);
 
   bool visibleOtherFields() {
     return locationToEdit != null;

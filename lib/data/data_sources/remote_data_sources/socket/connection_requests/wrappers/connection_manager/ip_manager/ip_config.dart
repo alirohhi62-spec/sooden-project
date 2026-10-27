@@ -2,6 +2,7 @@ import 'package:network_info_plus/network_info_plus.dart';
 
 import '../../../../../../../../core/utils/communication_constants.dart';
 import '../../../../../../../../core/utils/globals.dart';
+import '../../../../../../../../core/utils/loc_store.dart';
 import '../../../../../../../enums/connection_error_code.dart';
 import '../../../../../../local_data_sources/database/model/location.dart';
 import '../../../result.dart';
@@ -25,15 +26,19 @@ class IpConfig {
       if (wifiName == location.panelWifiName) {
         // On direct connect to the device
         ip = SocketConstants.ip;
+        LocStore.via = 'panel';
         _logger('getConnectionInfo', 'ip = $ip');
       } else if (wifiName == location.modemName) {
         // On a known wifi that is already connect to the device
         ip = getIpOnModem(location);
+        LocStore.via = 'modem';
       } else { // On a new wifi -> try ip static
         ip = getIpStatic(location);
+        LocStore.via = 'static';
       }
     } else { // On Mobile network -> try ip static
       ip = getIpStatic(location);
+      LocStore.via = 'static';
     }
     return ip;
   }
@@ -52,7 +57,7 @@ class IpConfig {
   String? getIpStatic(Location location) {
     _logger('getIpStatic', 'ip = ${location.staticIp}');
 
-    if (location.staticIp != null) {
+    if ((location.staticIp ?? '').trim().isNotEmpty) {
       return location.staticIp!;
     } else {
       _mResultCallback.call(Result.failure(ConnectionErrorCode.unableToGetIpStatic));

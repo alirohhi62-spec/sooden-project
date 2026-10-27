@@ -60,10 +60,12 @@ class LocationPicker {
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(l.name ?? 'مکان', style: const TextStyle(color: _text, fontSize: 14.5, fontWeight: FontWeight.w700)),
                             const SizedBox(height: 2),
-                            Text(
-                                (l.staticIp ?? '').isNotEmpty ? 'آی‌پی استاتیک: ${l.staticIp}' : 'آی‌پی استاتیک ندارد (فقط در محدوده‌ی همان مکان)',
-                                textDirection: TextDirection.rtl,
-                                style: const TextStyle(color: _muted, fontSize: 11.5)),
+                            (l.staticIp ?? '').isNotEmpty
+                                ? Text.rich(TextSpan(style: const TextStyle(color: _muted, fontSize: 11.5), children: [
+                                    const TextSpan(text: 'آی‌پی استاتیک: '),
+                                    TextSpan(text: l.staticIp, style: const TextStyle(fontFamily: 'Roboto', fontSize: 12.5)),
+                                  ]))
+                                : const Text('آی‌پی استاتیک ندارد (فقط در محدوده‌ی همان مکان)', style: TextStyle(color: _muted, fontSize: 11.5)),
                           ]),
                         ),
                         if (l.id == last?.id) const Text('آخرین مکان', style: TextStyle(color: _muted, fontSize: 11.5)),

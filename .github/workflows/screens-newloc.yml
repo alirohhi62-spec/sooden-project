@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'test/newloc_test.dart'
+      - 'test/homenet_test.dart'
 permissions:
   contents: write
 jobs:
@@ -17,7 +18,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter test --update-goldens test/newloc_test.dart 2>&1 | tee test-log.txt
+      - run: flutter test --update-goldens test/newloc_test.dart test/homenet_test.dart 2>&1 | tee test-log.txt
       - name: Push the pictures to the shots-newloc branch
         if: always()
         run: |
