@@ -29,7 +29,7 @@ void main() {
     expect(await HomeNet.isPanel('127.0.0.1', other), isFalse);
     expect(await HomeNet.isPanel('127.0.0.1', Location(id: 3, port: 1, mac: l.mac)), isFalse); // nothing there
     await srv.close();
-  });
+  }, timeout: const Timeout(Duration(seconds: 30)));
 
   test('UPnP: external address and port mapping (718 conflict -> delete, add again)', () async {
     final calls = <String>[];
@@ -62,5 +62,5 @@ void main() {
     expect(mapped, isTrue);
     expect(calls, ['GetExternalIPAddress', 'AddPortMapping', 'DeletePortMapping', 'AddPortMapping']);
     await http.close(force: true);
-  });
+  }, timeout: const Timeout(Duration(seconds: 30)));
 }

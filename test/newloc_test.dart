@@ -42,7 +42,7 @@ Future<void> _setup(WidgetTester tester, {double h = 2340}) async {
   m.setMockMethodCallHandler(const MethodChannel('dev.fluttercommunity.plus/network_info'),
       (call) async => call.method == 'wifiName' ? '"$wifi"' : null);
   Get.reset();
-  await GetStorage.init();
+  await tester.runAsync(() => GetStorage.init());
 }
 
 Widget _app(Widget w) => GetMaterialApp(debugShowCheckedModeBanner: false, theme: ThemeData(fontFamily: 'dana'), home: w);
