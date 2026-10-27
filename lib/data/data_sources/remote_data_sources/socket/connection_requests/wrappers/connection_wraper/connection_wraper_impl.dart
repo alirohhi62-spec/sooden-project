@@ -7,6 +7,7 @@ import 'package:network_info_plus/network_info_plus.dart';
 import '../../../../../../../core/eventbus/event_bus_const.dart';
 import '../../../../../../../core/eventbus/event_bus_model.dart';
 import '../../../../../../../core/utils/globals.dart';
+import '../../../../../../../core/utils/loc_store.dart';
 import '../../../../../../enums/connection_error_code.dart';
 import '../../../../../../repositories/location_repository.dart';
 import '../../../../../local_data_sources/database/model/location.dart';
@@ -45,9 +46,93 @@ class ConnectionWrapperImpl extends ConnectionWrapper {
     _logger('_sendEventStartConnecting', 'event: EventBusConst.eventSocketConnecting');
   }
 
+  /// صفحه‌ی انتخاب مکان (از لایه‌ی نمایش گذاشته می‌شود): وقتی گوشی در محدوده‌ی هیچ پنلی نیست
+  static Future<Location?> Function(List<Location> all, Location? last)? askWhich;
+
+  /// انتخاب مکان در محدوده‌ی خارج از همه‌ی پنل‌ها برای همین شبکه یک بار پرسیده می‌شود
+  String? _askedFor;
+  int? _askedPick;
+
+  /// اسم وای‌فای فعلی گوشی (بدون "")، یا '' (اینترنت همراه / نامعلوم)
+  static Future<String> currentWifi() async {
+    try {
+      String? w = await NetworkInfo().getWifiName();
+      if (w == null) return '';
+      if (w.length >= 2 && w.startsWith('"') && w.endsWith('"')) w = w.substring(1, w.length - 1);
+      if (w == '<unknown ssid>') return '';
+      return w;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// مکانی که گوشی در محدوده‌اش است: اسم وای‌فای پنل یا مودم آن مکان، یا وای‌فای خود پنل
+  /// با اسمی که اپ هنوز نمی‌شناسد (BSSID پنل با مک ذخیره‌شده فقط در بایت اول فرق دارد). null: هیچ‌کدام
+  static Location? matchLocation(List<Location> all, String wifi, String bssid) {
+    if (wifi.isEmpty) return null;
+    for (final l in all) {
+      if (l.panelWifiName == wifi || l.modemName == wifi) return l;
+    }
+    String tail(String? m) {
+      final h = (m ?? '').toLowerCase().replaceAll(RegExp('[^0-9a-f]'), '');
+      return h.length >= 12 ? h.substring(h.length - 10) : '';
+    }
+    final b = tail(bssid);
+    if (b.isEmpty) return null;
+    for (final l in all) {
+      if (tail(l.mac) == b) return l;
+    }
+    return null;
+  }
+
+  /// مکان این اتصال:
+  /// - گوشی به وای‌فای پنل یا مودم یکی از مکان‌ها وصل است: همان مکان، خودکار
+  /// - در محدوده‌ی هیچ پنلی نیست (اینترنت همراه، وای‌فای دیگر): با بیش از یک مکان از کاربر پرسیده می‌شود
+  ///   (آی‌پی استاتیک / سرور همان مکان استفاده می‌شود)
   _getUserSelectedLocation() async {
-    _mCurrLocations = await Get.find<LocationRepository>().getUserSelectedLocation();
-    _logger('_getUserSelectedLocation', '_mCurrLocations: $_mCurrLocations');
+    final repo = Get.find<LocationRepository>();
+    final all = await repo.getLocations();
+    final last = await repo.getUserSelectedLocation();
+    Location? pick;
+    final wifi = await currentWifi();
+    LocStore.wifiNow = wifi;
+    LocStore.autoPicked = false;
+    if (all.isNotEmpty) LocStore.firstId = all.map((l) => l.id ?? 0).reduce((a, b) => a < b ? a : b);
+    if (wifi.isNotEmpty) {
+      String b = '';
+      try {
+        b = await NetworkInfo().getWifiBSSID() ?? '';
+      } catch (_) {}
+      pick = matchLocation(all, wifi, b);
+      if (pick != null && pick.panelWifiName != wifi && pick.modemName != wifi) {
+        pick.panelWifiName = wifi;                           // اسم تازه‌ی وای‌فای پنل از این به بعد شناخته می‌شود
+        await repo.updateLocation(pick);
+      }
+    }
+    if (pick != null) {
+      LocStore.autoPicked = all.length > 1;
+    } else if (all.length > 1) {
+      final net = wifi.isEmpty ? '-mobile-' : wifi;
+      if (_askedFor == net && _askedPick != null) {
+        for (final l in all) {
+          if (l.id == _askedPick) pick = l;
+        }
+      }
+      if (pick == null && askWhich != null) {
+        pick = await askWhich!(all, last);
+        if (pick != null) {
+          _askedFor = net;
+          _askedPick = pick.id;
+        }
+      }
+      pick ??= last;
+    } else {
+      pick = last;
+    }
+    if (pick != null && pick.id != null && pick.id != last?.id) await repo.updateSelectedLocation(pick.id!);
+    _mCurrLocations = pick;
+    LocStore.set(pick?.id, pick?.name ?? '');
+    _logger('_getUserSelectedLocation', 'wifi: $wifi, location: ${pick?.name} (auto ${LocStore.autoPicked})');
   }
 
   void _manageConnect() {

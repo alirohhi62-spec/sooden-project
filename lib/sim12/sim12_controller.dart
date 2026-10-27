@@ -9,6 +9,7 @@ import '../data/data_sources/remote_data_sources/socket/socket.dart';
 import '../panel12/panel12_controller.dart';
 import '../sd23/sd23_controller.dart';
 import 'sim12_simulator.dart';
+import '../core/utils/loc_store.dart';
 import 'sim12_sms.dart';
 
 /// پنل ۱۲ پل سیمکارتی (دزدگیر + سیمکارت + وای‌فای).
@@ -100,19 +101,25 @@ class Sim12Controller extends GetxController {
   static const _kCode = 'sim12_code';
   static const _kForce = 'sim12_force_sms';
 
+  void _loadLocal() {
+    panelNumber.value = LocStore.read<String>(_kNumber) ?? '';
+    savedCode.value = LocStore.read<String>(_kCode) ?? '';
+    forceSms.value = LocStore.read<bool>(_kForce) ?? false;
+    try {
+      final cp = LocStore.read<List>('sim12_curtain_pos');
+      if (cp != null && cp.length == 2) curtainPos.assignAll([for (final x in cp) (x as num).toDouble()]);
+    } catch (_) {}
+  }
+
   @override
   void onInit() {
     super.onInit();
     try {
-      panelNumber.value = (GetStorage().read(_kNumber) as String?) ?? '';
-      savedCode.value = (GetStorage().read(_kCode) as String?) ?? '';
-      forceSms.value = (GetStorage().read(_kForce) as bool?) ?? false;
+      _loadLocal();
     } catch (_) {}
+    LocStore.listen(_loadLocal);                       // هر مکان (منزل، ویلا) شماره و رمز پنل خودش را دارد
     _smsSub = Sim12Sms.incoming.listen(_onSms, onError: (_) {});
-    try {
-      final cp = GetStorage().read('sim12_curtain_pos');
-      if (cp is List && cp.length == 2) curtainPos.assignAll([for (final x in cp) (x as num).toDouble()]);
-    } catch (_) {}
+
     _linkWorker = ever(ConnectionKeeper.instance.state, (_) => updateLink());
     updateLink();
   }
@@ -289,7 +296,7 @@ class Sim12Controller extends GetxController {
       }
     }
     try {
-      GetStorage().write(_kForce, forceSms.value);
+      LocStore.write(_kForce, forceSms.value);
     } catch (_) {}
     updateLink();
   }
@@ -297,14 +304,14 @@ class Sim12Controller extends GetxController {
   void setPanelNumber(String n) {
     panelNumber.value = n.replaceAll(RegExp(r'[^0-9+]'), '');
     try {
-      GetStorage().write(_kNumber, panelNumber.value);
+      LocStore.write(_kNumber, panelNumber.value);
     } catch (_) {}
   }
 
   void setSavedCode(String c) {
     savedCode.value = c;
     try {
-      GetStorage().write(_kCode, c);
+      LocStore.write(_kCode, c);
     } catch (_) {}
   }
 
@@ -602,7 +609,7 @@ class Sim12Controller extends GetxController {
       _curT?.cancel();
       _curT = null;
       try {
-        GetStorage().write('sim12_curtain_pos', p);
+        LocStore.write('sim12_curtain_pos', p);
       } catch (_) {}
     }
   }

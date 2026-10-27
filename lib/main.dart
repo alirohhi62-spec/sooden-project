@@ -11,11 +11,14 @@ import 'package:sizer/sizer.dart';
 import 'core/di/app_binding.dart';
 import 'core/utils/globals.dart';
 import 'presentation/lifecycle_event_handler.dart';
+import 'presentation/widgets/location_picker.dart';
+import 'data/data_sources/remote_data_sources/socket/connection_requests/wrappers/connection_wraper/connection_wraper_impl.dart';
 
 Future<void> main() async {
   await GetStorage.init();
   _observeLifeCycle();
   Get.isLogEnable = true;
+  ConnectionWrapperImpl.askWhich = LocationPicker.ask;   // چند مکان: خارج از محدوده‌ی همه‌ی پنل‌ها بپرس به کدام وصل شویم
   runApp(const MyApp());
   _logger('main','run App called');
 }

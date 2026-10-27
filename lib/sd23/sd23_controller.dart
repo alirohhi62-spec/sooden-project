@@ -6,6 +6,7 @@ import 'package:get_storage/get_storage.dart';
 
 import '../data/data_sources/remote_data_sources/socket/socket.dart';
 import '../panel12/panel12_controller.dart';
+import '../core/utils/loc_store.dart';
 import 'sd23_simulator.dart';
 
 /// تنظیمات یک کلید که پنل گزارش می‌دهد: $CF#nn#نوع#sec1#sec2#دقیقه#روشن‌ها#خاموش‌ها#ثانیه‌ی باقی‌مانده$
@@ -1150,17 +1151,17 @@ class Sd23Controller extends GetxController {
   dynamic _load(String what) {
     final k = '${_pairKey}_$what';
     try {
-      return GetStorage().read(k) ?? _mem[k];
+      return LocStore.read(k) ?? _mem[LocStore.key(k)];
     } catch (_) {
-      return _mem[k];
+      return _mem[LocStore.key(k)];
     }
   }
 
   void _store(String what, dynamic v) {
     final k = '${_pairKey}_$what';
-    _mem[k] = v;
+    _mem[LocStore.key(k)] = v;
     try {
-      GetStorage().write(k, v);
+      LocStore.write(k, v);
     } catch (_) {}
   }
 

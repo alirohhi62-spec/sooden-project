@@ -12,6 +12,7 @@ import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import '../sd23/sd23_controller.dart';
 import '../sim12/sim12_controller.dart';
 import 'panel12_icons.dart';
+import '../core/utils/loc_store.dart';
 import 'panel12_simulator.dart';
 
 /// یک سناریوی ذخیره‌شده روی پنل
@@ -225,15 +226,20 @@ class Panel12Controller extends GetxController {
   static const String _kLastSd23 = 'panel12_last_sd23';
   static const String _kLastSim12 = 'panel12_last_sim12';
 
+  void _loadLast() {
+    lastRf12.value = LocStore.read<bool>(_kLastRf12) ?? false;
+    lastSd23.value = LocStore.read<bool>(_kLastSd23) ?? false;
+    lastSim12.value = LocStore.read<bool>(_kLastSim12) ?? false;
+  }
+
   @override
   void onInit() {
     super.onInit();
     Socket.rawListener = onRaw;
     try {
-      lastRf12.value = (GetStorage().read(_kLastRf12) as bool?) ?? false;
-      lastSd23.value = (GetStorage().read(_kLastSd23) as bool?) ?? false;
-      lastSim12.value = (GetStorage().read(_kLastSim12) as bool?) ?? false;
+      _loadLast();
     } catch (_) {}
+    LocStore.listen(_loadLast);                        // آخرین نوع پنل هر مکان
     _busSub = eventBus.on<EventBusModel>().listen((e) {
       if (e.event == EventBusConst.eventSocketReconnect) reloadPanel();
     });    // پنل سیمکارتی با شماره‌ی پنل: قطع وای‌فای = حالت پیامکی در همان صفحه، نه صفحه‌ی «دستگاه پیدا نشد»
@@ -241,7 +247,7 @@ class Panel12Controller extends GetxController {
       final sim = isSim12.value || (!modelKnown.value && lastSim12.value);
       if (!sim) return false;
       try {
-        return ((GetStorage().read('sim12_panel_number') as String?) ?? '').isNotEmpty;
+        return (LocStore.read<String>('sim12_panel_number') ?? '').isNotEmpty;
       } catch (_) {
         return false;
       }
@@ -330,21 +336,21 @@ class Panel12Controller extends GetxController {
   void _setLastSim12(bool v) {
     lastSim12.value = v;
     try {
-      GetStorage().write(_kLastSim12, v);
+      LocStore.write(_kLastSim12, v);
     } catch (_) {}
   }
 
   void _setLastSd23(bool v) {
     lastSd23.value = v;
     try {
-      GetStorage().write(_kLastSd23, v);
+      LocStore.write(_kLastSd23, v);
     } catch (_) {}
   }
 
   void _setLastRf12(bool v) {
     lastRf12.value = v;
     try {
-      GetStorage().write(_kLastRf12, v);
+      LocStore.write(_kLastRf12, v);
     } catch (_) {}
   }
 

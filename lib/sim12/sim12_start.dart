@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
+import '../core/utils/loc_store.dart';
 import 'sim12_controller.dart';
 
 /// شروع اپ وقتی آخرین پنل، پنل سیمکارتی بوده و وای‌فای پنل در دسترس نیست:
@@ -12,7 +13,7 @@ class Sim12Start {
 
   static bool lastWasSim12() {
     try {
-      return (GetStorage().read('panel12_last_sim12') as bool?) ?? false;
+      return LocStore.read<bool>('panel12_last_sim12') ?? false;
     } catch (_) {
       return false;
     }
