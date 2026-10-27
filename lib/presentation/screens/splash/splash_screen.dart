@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/utils/globals.dart';
 import '../../components/user_name_sheet.dart';
+import '../../widgets/first_run_note.dart';
 import '../../logic/splash_logic.dart';
 
 class SplashScreen extends StatelessWidget {
@@ -42,6 +43,7 @@ class SplashScreen extends StatelessWidget {
   }
 
   _checkLocationPermission() async {
+    await FirstRunNote.showOnce();                 // بار اول: اندروید لازم، اجازه‌ی موقعیت، وای‌فای پنل
     var permissionStatus = await Permission.locationWhenInUse.status;
 
     if (permissionStatus.isGranted) {

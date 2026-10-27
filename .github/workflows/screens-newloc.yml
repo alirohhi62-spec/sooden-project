@@ -1,0 +1,32 @@
+# صفحه‌ی مکان جدید: test/newloc_test.dart، نتیجه در شاخه‌ی shots-newloc
+name: Screens NEWLOC
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'test/newloc_test.dart'
+permissions:
+  contents: write
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --update-goldens test/newloc_test.dart 2>&1 | tee test-log.txt
+      - name: Push the pictures to the shots-newloc branch
+        if: always()
+        run: |
+          mkdir -p /tmp/shots && cp -r test/goldens/newloc_*.png test-log.txt /tmp/shots/ 2>/dev/null || true
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git checkout --orphan shots-newloc
+          git rm -rf . -q
+          cp /tmp/shots/* . 2>/dev/null || true
+          git add -A
+          git commit -qm "screens ${GITHUB_SHA}" || true
+          git push -f origin shots-newloc

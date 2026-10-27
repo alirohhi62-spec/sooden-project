@@ -35,6 +35,14 @@ class MainActivity : FlutterActivity() {
                 } catch (e: Exception) {
                     result.success(false)
                 }
+            } else if (call.method == "wifiSettings") {
+                // صفحه‌ی وای‌فای گوشی (برای وصل شدن به وای‌فای پنل)
+                try {
+                    startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.success(false)
+                }
             } else {
                 result.notImplemented()
             }

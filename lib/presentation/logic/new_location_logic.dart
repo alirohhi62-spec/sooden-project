@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:bms/core/eventbus/event_bus_const.dart';
 import 'package:bms/core/eventbus/event_bus_model.dart';
-import 'package:bms/core/utils/constants.dart';
 import 'package:bms/core/utils/globals.dart';
 import 'package:bms/core/utils/util.dart';
 import 'package:bms/data/data_sources/remote_data_sources/socket/connection_requests/result.dart';
@@ -12,12 +12,13 @@ import 'package:bms/domain/usecases/update_devices/update_devices_usecase_impl.d
 import 'package:bms/presentation/logic/base_logic.dart';
 import 'package:bms/presentation/screens/splash/splash_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../core/di/app_binding.dart';
 import '../../data/data_sources/local_data_sources/database/model/location.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/connection_requests_impl.dart';
+import '../../data/data_sources/remote_data_sources/socket/connection_requests/wrappers/connection_wraper/connection_wraper_impl.dart';
 import '../../data/data_sources/remote_data_sources/socket/connection_requests/wrappers/connection_manager/connection_manager_data_model.dart';
 import '../../data/enums/connection_error_code.dart';
 import '../../domain/usecases/set_modem/set_modem_usecase_impl.dart';
@@ -40,6 +41,15 @@ class NewLocationLogic extends BaseLogic {
   TextEditingController staticIpController = TextEditingController();
   late UpdateDeviceUseCaseImpl updateDeviceUseCase;
   bool mSetModemIpLoading = false;
+
+  /// خطای اتصال به پنل (کارت قرمز بالای صفحه)؛ null = خطایی نیست
+  String? connError;
+  /// نتیجه‌ی ثبت وای‌فای پنل و اتصال پنل به مودم (زیر همان کارت)
+  String? wifiMsg, modemMsg;
+  bool wifiOk = false, modemOk = false;
+  /// وای‌فای فعلی گوشی ('' = وای‌فای نیست یا اجازه‌ی موقعیت داده نشده)
+  String phoneWifi = '';
+  bool showMore = false;
   late final LocationRepository _locationRepository = Get.find<LocationRepository>();
   StreamSubscription<EventBusModel>? _mSubscription;
   StreamSubscription<Result>? _mConnectionSubscription;
@@ -60,7 +70,42 @@ class NewLocationLogic extends BaseLogic {
 
   void _initVariable() {
     updateDeviceUseCase = UpdateDeviceUseCaseImpl();
+    refreshPhoneWifi();
   }
+
+  Future<void> refreshPhoneWifi() async {
+    phoneWifi = await ConnectionWrapperImpl.currentWifi();
+    update();
+  }
+
+  /// گوشی به وای‌فای خود پنل وصل است؟ (اسم پیش‌فرض sooden-... یا اسم ذخیره‌شده‌ی این مکان)
+  bool get onPanelWifi =>
+      phoneWifi.isNotEmpty &&
+      (phoneWifi.toLowerCase().startsWith('sooden') || (locationToEdit?.panelWifiName ?? '') == phoneWifi);
+
+  static const _ch = MethodChannel('sooden/sms');
+  Future<void> openWifiSettings() async {
+    try {
+      await _ch.invokeMethod('wifiSettings');
+    } catch (_) {}
+  }
+
+  /// " , \ در فرمان AT باید با \ بیایند (اسم و رمز با هر حرفی)
+  static String atEsc(String v) => v.replaceAllMapped(RegExp(r'[\\",]'), (m) => '\\${m[0]}');
+  static int bytes(String v) => utf8.encode(v).length;
+
+  /// اسم وای‌فای پنل: هر حرفی، ۱ تا ۳۲ بایت (حرف فارسی ۲ بایت). رمز: خالی (بی‌رمز) یا ۸ تا ۴۰ حرف. null = درست
+  static String? checkPanelWifi(String name, String pw) {
+    if (name.trim().isEmpty) return 'اسم وای‌فای را بنویسید.';
+    if (bytes(name) > 32) return 'اسم وای‌فای طولانی است: حداکثر ۳۲ حرف انگلیسی (یا حدود ۱۶ حرف فارسی).';
+    if (pw.isNotEmpty && pw.length < 8) return 'رمز باید خالی (وای‌فای بدون رمز) یا دست‌کم ۸ حرف باشد.';
+    if (bytes(pw) > 40) return 'رمز حداکثر ۴۰ حرف انگلیسی است.';
+    return null;
+  }
+
+  static String apCommand(String name, String pw) =>
+      '*AT+CWSAP="${atEsc(name)}","${atEsc(pw)}",1,${pw.isEmpty ? 0 : 4}*';
+  static String joinCommand(String name, String pw) => '#AT+CWJAP="${atEsc(name)}","${atEsc(pw)}"#';
 
   void _listenEventBus() {
     _mSubscription = eventBus.on<EventBusModel>().listen((event) {
@@ -78,27 +123,45 @@ class NewLocationLogic extends BaseLogic {
   /// @M_S=Error
   void _onEventSetModemHappened(EventBusModel event) {
     SetModemUsecaseImpl().setModemData(locationToEdit!, event.data!, (bool status, String data) {
-      if (!status) {
-        Utils.snackError(data);
-      } else {
-        Utils.snackSuccess('مودم تنظیم شد. $data');
-      }
+      modemOk = status;
+      modemMsg = status ? 'پنل به مودم وصل شد.' : data;
+      if (status) panelIpOnModemController.text = locationToEdit?.panelIpOnModem ?? panelIpOnModemController.text;
       mSetModemIpLoading = false;
       update();
     });
   }
 
   setModemConfig() {
+    if (modemNameController.text.trim().isEmpty) {
+      modemOk = false;
+      modemMsg = 'اسم وای‌فای مودم منزل را بنویسید.';
+      update();
+      return;
+    }
+    if (bytes(modemNameController.text) > 32 || bytes(modemPasswordController.text) > 64) {
+      modemOk = false;
+      modemMsg = 'اسم مودم حداکثر ۳۲ و رمز آن حداکثر ۶۴ حرف انگلیسی است.';
+      update();
+      return;
+    }
     mSetModemIpLoading = true;
+    modemMsg = null;
     update();
 
     _storeModemData();
 
-    sendMessageToSocket(
-        '#AT+CWJAP="${modemNameController.text}","${modemPasswordController.text}"#');
-
-    _logger('setModemConfig - send ',
-        ' #AT+CWJAP="${modemNameController.text}","${modemPasswordController.text}"#');
+    final cmd = joinCommand(modemNameController.text, modemPasswordController.text);
+    sendMessageToSocket(cmd);
+    _logger('setModemConfig - send ', cmd);
+    // پنل تا ۲۰ ثانیه برای وصل شدن به مودم وقت دارد
+    Future.delayed(const Duration(seconds: 30), () {
+      if (mSetModemIpLoading) {
+        mSetModemIpLoading = false;
+        modemOk = false;
+        modemMsg = 'پاسخی از پنل نیامد. گوشی هنوز به وای‌فای پنل وصل است؟ دوباره «تست اتصال» را بزنید.';
+        update();
+      }
+    });
   }
 
   _storeModemData() {
@@ -130,6 +193,8 @@ class NewLocationLogic extends BaseLogic {
 
   checkConnection() async {
     if (_connectionValidation() == false) return;
+    connError = null;
+    await refreshPhoneWifi();
 
     _mConnectionSubscription?.cancel();
 
@@ -143,7 +208,6 @@ class NewLocationLogic extends BaseLogic {
   void onConnectionResult(Result result) {
     if (result.isLoading) {
       isLoading = true;
-      Utils.toast('در حال اتصال...', Toast.LENGTH_LONG);
       update();
     } else if (result.isSuccess) {
       isLoading = false;
@@ -167,23 +231,23 @@ class NewLocationLogic extends BaseLogic {
     _logger('_onFailedCallback', 'reason : $reason');
 
     if (reason != null && reason == ConnectionErrorCode.repeatedLocation) {
-      Utils.snackError('دستگاه قبلا ایجاد شده است.');
+      connError = 'این پنل قبلاً در یکی از مکان‌ها ذخیره شده است. از صفحه‌ی «مکان‌های من» همان مکان را انتخاب کنید.';
     } else {
-      Utils.snackError('.پاسخی دریافت نشد، لطفا دوباره تلاش کنید.');
-      Utils.toast('Error: $reason', Toast.LENGTH_LONG);
+      connError = 'پنل جواب نداد';
     }
   }
 
   bool _connectionValidation() {
-    if (locationNameController.text.isEmpty) {
-      Get.snackbar('خطا', 'ورود نام مکان ضروری است');
+    if (locationNameController.text.trim().isEmpty) {
+      connError = 'اسم مکان را بنویسید (مثلاً منزل یا ویلا).';
+      update();
       return false;
     }
     return true;
   }
 
   setStaticIpConfig() {
-    locationToEdit!.staticIp = staticIpController.text;
+    locationToEdit!.staticIp = staticIpController.text.trim();
     _locationRepository.updateLocation(locationToEdit!);
   }
 
@@ -200,18 +264,19 @@ class NewLocationLogic extends BaseLogic {
   }
 
   void onSetDeviceNamePassword() {
-    if (_isNamePasswordValid()) {
-      _storeWifiData();
-      sendMessageToSocket(
-          '*AT+CWSAP="${wifiNameController.text}","${wifiPasswordController.text}",1,4*');
-    } else {
-      showValidationError();
+    final err = checkPanelWifi(wifiNameController.text, wifiPasswordController.text);
+    if (err != null) {
+      wifiOk = false;
+      wifiMsg = err;
+      update();
+      return;
     }
-  }
-
-  bool _isNamePasswordValid() {
-    return wifiNameController.text.length > Constants.minimumBMSWifiNameCharacter &&
-        wifiPasswordController.text.length == Constants.exactBMSWifiPasswordCharacter;
+    _storeWifiData();
+    sendMessageToSocket(apCommand(wifiNameController.text, wifiPasswordController.text));
+    wifiOk = true;
+    wifiMsg = 'ثبت شد. پنل چند ثانیه بعد با اسم «${wifiNameController.text}» دیده می‌شود؛ '
+        'گوشی را به همین وای‌فای وصل کنید${wifiPasswordController.text.isEmpty ? ' (بدون رمز).' : ' و رمز تازه را بزنید.'}';
+    update();
   }
 
   void _storeWifiData() {
@@ -233,9 +298,4 @@ class NewLocationLogic extends BaseLogic {
     doLog('new_location_logic. H:$hashCode', key, value);
   }
 
-  void showValidationError() {
-    Utils.snackError('تعداد کارکتر مجاز نام wifi باید بیشتر از '
-        '${Constants.minimumBMSWifiNameCharacter} باشد \n و تعداد کاراکتر پسورد باید '
-        '${Constants.exactBMSWifiPasswordCharacter} کاراکتر باشد.');
-  }
 }
