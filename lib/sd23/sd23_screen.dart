@@ -321,62 +321,90 @@ class Sd23Screen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(9),
         decoration: _glass(radius: 22),
-        child: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xD9FFFFFF), width: 1.5),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0x8C363436), Color(0x8C141416)],
-            ),
-          ),
-          child: Directionality(
-            textDirection: TextDirection.ltr,
-            child: Obx(() {
-              // همه‌ی مقدارهایی که تصویر به آن‌ها وابسته است
-              c.lay.value;
-              c.bits.value;
-              c.alarm.value;
-              c.entry.value;
-              c.highlight.value;
-              c.flashing.length;
-              c.labels.length;
-              c.iconIds.length;
-              if (c.model.value == 'e12') return _e12Panel();
-              // پنل کوچک (مثل شش پل: فقط کلیدهای ۱ تا ۸ را فرستاده): فقط همان کلیدها، دو ستون
-              final small = c.layKnown.value && [for (int k = 8; k < Sd23Controller.keyCount; k++) c.kindOf(k)].every((t) => t == '-');
-              if (small) {
-                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: [for (final k in [0, 2, 4, 6]) _miniKey(k)])),
-                  const SizedBox(width: 10),
-                  Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: [for (final k in [1, 3, 5, 7]) _miniKey(k)])),
-                ]);
-              }
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                        flex: 2,
-                        child: Column(
-                            mainAxisSize: MainAxisSize.min, children: Sd23Controller.leftKeys.map(_miniKey).toList())),
-                    const SizedBox(width: 6),
-                    Expanded(flex: 3, child: _miniCenter()),
-                    const SizedBox(width: 6),
-                    Expanded(
-                        flex: 2,
-                        child: Column(
-                            mainAxisSize: MainAxisSize.min, children: Sd23Controller.rightKeys.map(_miniKey).toList())),
-                  ],
-                ),
-              );
-            }),
-          ),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Obx(() {
+            // همه‌ی مقدارهایی که تصویر به آن‌ها وابسته است
+            c.lay.value;
+            c.bits.value;
+            c.alarm.value;
+            c.entry.value;
+            c.highlight.value;
+            c.flashing.length;
+            c.labels.length;
+            c.iconIds.length;
+            if (c.model.value == 'e12') return _frame(_e12Panel());
+            // پنل کوچک (۱ تا ۴ پل، شش پل: فقط کلیدهای ۱ تا ۸): شیشه به شکل خود پنل
+            final small = c.layKnown.value && [for (int k = 8; k < Sd23Controller.keyCount; k++) c.kindOf(k)].every((t) => t == '-');
+            if (small) return _smallPanel();
+            return _frame(IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                      flex: 2,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: Sd23Controller.leftKeys.map(_miniKey).toList())),
+                  const SizedBox(width: 6),
+                  Expanded(flex: 3, child: _miniCenter()),
+                  const SizedBox(width: 6),
+                  Expanded(
+                      flex: 2,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: Sd23Controller.rightKeys.map(_miniKey).toList())),
+                ],
+              ),
+            ));
+          }),
         ),
       ),
     );
+  }
+
+  /// قاب سفید دور کلیدها (لبه‌ی شیشه)
+  Widget _frame(Widget child, {double pad = 6}) => Container(
+        padding: EdgeInsets.all(pad),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xD9FFFFFF), width: 1.5),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0x8C363436), Color(0x8C141416)],
+          ),
+        ),
+        child: child,
+      );
+
+  /// پنل‌های کوچک به شکل خودشان: ۱ و ۲ پل و ۴ پل مربع، شش پل ایستاده (دو ستون، چهار ردیف)
+  Widget _smallPanel() {
+    int n = 0;
+    for (int k = 0; k < 8; k++) {
+      if (c.kindOf(k) != '-') n = k + 1;
+    }
+    Widget key(int k) => SizedBox(height: 44, child: FittedBox(child: SizedBox(width: 64, height: 32, child: _miniKey(k))));
+    Widget face;
+    double w, ratio;
+    if (n <= 2) {
+      w = 190;
+      ratio = 1;
+      face = Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [for (int k = 0; k < (n < 1 ? 1 : n); k++) key(k)]);
+    } else if (n <= 4) {
+      w = 190;
+      ratio = 1;
+      face = Column(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+        for (final r in const [
+          [0, 1],
+          [2, 3]
+        ])
+          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [for (final k in r) key(k)]),
+      ]);
+    } else {
+      w = 200;
+      ratio = 0.85;
+      face = Column(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+        for (int r = 0; r < 4; r++) Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [key(2 * r), key(2 * r + 1)]),
+      ]);
+    }
+    return Center(child: SizedBox(width: w, child: AspectRatio(aspectRatio: ratio, child: _frame(face, pad: 10))));
   }
 
   /// یک کلید کوچک: آیکون + نوشته (کلیدهای صفحه‌کلید فقط نوشته)
@@ -386,7 +414,9 @@ class Sd23Screen extends StatelessWidget {
     final base = _groupColor(c.groupOf(k));
     final fg = t == '-' ? _dim : (lit ?? base);
     final glow = lit != null ? [Shadow(color: lit.withValues(alpha: .6), blurRadius: 8)] : null;
-    final textOnly = t == 'n' || t == 'c' || Sd23Controller.isDigitKind(t);
+    // ۱۲ اقتصادی: سناریوها فقط نوشته (جز احضار آسانسور)
+    final scnText = c.model.value == 'e12' && c.groupOf(k) == Sd23Controller.gScn && t != 'E';
+    final textOnly = t == 'n' || t == 'c' || Sd23Controller.isDigitKind(t) || scnText;
     final mark = c.highlight.value == k;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -407,7 +437,7 @@ class Sd23Screen extends StatelessWidget {
                       child: Text(c.labelOf(k),
                           style: TextStyle(
                               color: Sd23Controller.isDigitKind(t) && lit == null ? const Color(0xFFFFE600) : fg,
-                              fontSize: Sd23Controller.isDigitKind(t) ? 13 : 7.5,
+                              fontSize: Sd23Controller.isDigitKind(t) ? 13 : scnText ? 9 : 7.5,
                               fontWeight: FontWeight.w600,
                               shadows: glow)),
                     ),
@@ -440,20 +470,21 @@ class Sd23Screen extends StatelessWidget {
       aspectRatio: fw / fh,
       child: LayoutBuilder(builder: (context, bc) {
         final sx = bc.maxWidth / fw, sy = bc.maxHeight / fh;
-        Widget box(List<double> b, Widget child, {bool line = true}) => Positioned(
-              left: (b[0] - x0) * sx,
-              top: (b[1] - y0) * sy,
-              width: (b[2] - b[0]) * sx,
-              height: (b[3] - b[1]) * sy,
-              child: Container(
-                decoration: line ? BoxDecoration(border: Border.all(color: const Color(0x66C8102E), width: .8)) : null,
-                child: child,
-              ),
-            );
+        // جای هر کلید روی شیشه، کمی بزرگ‌تر از نقشه (آیکون درشت‌تر)؛ بدون کادر دور کلید
+        Widget box(List<double> b, Widget child, {double grow = 1.3}) {
+          final cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, hw = (b[2] - b[0]) / 2 * grow, hh = (b[3] - b[1]) / 2 * grow;
+          return Positioned(
+            left: (cx - hw - x0) * sx,
+            top: (cy - hh - y0) * sy,
+            width: 2 * hw * sx,
+            height: 2 * hh * sy,
+            child: child,
+          );
+        }
         return Stack(children: [
           for (final e in _e12Box.entries)
             box(e.value, FittedBox(fit: BoxFit.contain, child: SizedBox(width: 33 * (e.value[2] - e.value[0]) / (e.value[3] - e.value[1]), height: 33, child: _miniKey(e.key)))),
-          box(const [808, 552, 855, 589], const FittedBox(child: Icon(Icons.wifi, color: Color(0x99FFFFFF)))),
+          box(const [808, 552, 855, 589], const FittedBox(child: Icon(Icons.wifi, color: Color(0x99FFFFFF))), grow: 1),
         ]);
       }),
     );
@@ -476,13 +507,13 @@ class Sd23Screen extends StatelessWidget {
   String _tabTitle(String g) {
     switch (g) {
       case Sd23Controller.gPoles:
-        return 'پل‌ها ${Sd23Controller.faNum(c.keysOf(g).length)}';
+        return '${Sd23Controller.faNum(c.keysOf(g).length)} پل';
       case Sd23Controller.gCooler:
         return 'کولر';
       case Sd23Controller.gCurtain:
         return 'پرده';
       case Sd23Controller.gScn:
-        return 'سناریو ${Sd23Controller.faNum(c.keysOf(g).length)}';
+        return '${Sd23Controller.faNum(c.keysOf(g).length)} سناریو';
       case Sd23Controller.gAlarm:
         return 'دزدگیر';
     }
