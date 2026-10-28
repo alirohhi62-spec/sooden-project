@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../panel12/panel12_controller.dart' show Panel12Controller;
 import '../panel12/panel12_vacation.dart' show Jalali;
 import 'sd23_controller.dart';
 import 'sd23_screen.dart';
@@ -83,6 +84,7 @@ class _Sd23VacationPageState extends State<Sd23VacationPage> {
                 child: Obx(() {
                   c.lay.value; // چیدمان پنل (چراغ‌ها و پرده‌ها)
                   return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    _panelClock(),
                     _clockCard(),
                     _dates(),
                     const SizedBox(height: 10),
@@ -155,6 +157,132 @@ class _Sd23VacationPageState extends State<Sd23VacationPage> {
 
   /// ساعت پنل: معلوم نیست (برق رفته و اینترنت نیست)، تقریبی بعد از قطع برق (B) یا از گوشی؛ از اینترنت (N)، شبکه‌ی اپراتور (G)
   /// یا پیامک (S، پنل سیمکارتی): بدون هشدار
+  /// ساعت پنل الان، از کجا آمده، و تنظیم با ساعت گوشی یا دستی
+  Widget _panelClock() {
+    if (!c.clockKnown.value) return const SizedBox.shrink();
+    const src = {'N': 'از اینترنت', 'P': 'از گوشی', 'G': 'از شبکه‌ی اپراتور', 'S': 'از پیامک', 'B': 'تقریبی (بعد از قطع برق)'};
+    String t;
+    if (!c.clockOk.value) {
+      t = 'معلوم نیست';
+    } else {
+      final m0 = c.clockDay.value * 1440 + c.clockMin.value + DateTime.now().difference(c.clockAt).inMinutes;
+      final d = m0 ~/ 1440, mi = m0 % 1440;
+      final j = Jalali.of(Panel12Controller.dateOf(d));
+      t = '${Jalali.weekday(d)} ${_fa(j[0])}/${_fa2(j[1])}/${_fa2(j[2])} · ${_fa2(mi ~/ 60)}:${_fa2(mi % 60)}';
+    }
+    final s = c.clockOk.value ? (src[c.clockSrc.value] ?? '') : '';
+    final manual = !Sd23Controller.phoneClock;
+    Widget btn(String label, VoidCallback onTap) => GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              color: _red.withValues(alpha: .10),
+              border: Border.all(color: _red.withValues(alpha: .55)),
+            ),
+            child: Text(label, style: const TextStyle(color: _text, fontSize: 11.5, fontWeight: FontWeight.w600)),
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: const Color(0x0DFFFFFF),
+          border: Border.all(color: const Color(0x1FFFFFFF)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            const Icon(Icons.schedule_rounded, color: _text, size: 18),
+            const SizedBox(width: 6),
+            const Text('ساعت پنل', style: TextStyle(color: _text, fontSize: 13, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            if (s.isNotEmpty) Text(s, style: const TextStyle(color: _muted, fontSize: 11)),
+          ]),
+          const SizedBox(height: 6),
+          Text(t, style: const TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w700)),
+          if (manual)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text('دستی تنظیم شده؛ اپ ساعت گوشی را نمی‌فرستد تا «با ساعت گوشی» را بزنید.',
+                  style: TextStyle(color: _amber, fontSize: 10.5)),
+            ),
+          const SizedBox(height: 8),
+          Row(children: [
+            btn('با ساعت گوشی', c.setClockFromPhone),
+            const SizedBox(width: 8),
+            btn('تنظیم دستی', _manualClock),
+          ]),
+          if (c.clockSrc.value == 'N')
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('پنل ساعت را از اینترنت دارد؛ ساعت گوشی یا دستی جای آن را نمی‌گیرد.', style: TextStyle(color: _muted, fontSize: 10.5)),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  /// تنظیم دستی تاریخ شمسی و ساعت
+  void _manualClock() {
+    final now = Sd23Controller.iranNow();
+    final j = Jalali.of(DateTime(now.year, now.month, now.day));
+    final f = [
+      TextEditingController(text: '${j[0]}'),
+      TextEditingController(text: '${j[1]}'),
+      TextEditingController(text: '${j[2]}'),
+      TextEditingController(text: '${now.hour}'),
+      TextEditingController(text: '${now.minute}'),
+    ];
+    Widget field(int i, String label) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: TextField(
+              controller: f[i],
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: _text, fontSize: 16),
+              decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(color: _muted, fontSize: 11)),
+            ),
+          ),
+        );
+    Get.dialog(Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        backgroundColor: const Color(0xFF16171C),
+        title: const Text('تنظیم دستی ساعت پنل', style: TextStyle(color: _text, fontSize: 16)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [field(0, 'سال'), field(1, 'ماه'), field(2, 'روز')]),
+          const SizedBox(height: 8),
+          Directionality(textDirection: TextDirection.ltr, child: Row(children: [field(3, 'ساعت'), field(4, 'دقیقه')])),
+          const SizedBox(height: 8),
+          const Text('فقط وقتی ساعت گوشی درست نیست. تا «با ساعت گوشی» را نزنید، اپ ساعت گوشی را به پنل نمی‌دهد.',
+              style: TextStyle(color: _muted, fontSize: 11, height: 1.6)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('انصراف')),
+          TextButton(
+            onPressed: () {
+              final v = [for (final x in f) int.tryParse(x.text.trim()) ?? -1];
+              final d = Sd23Controller.dayOfJalali(v[0], v[1], v[2]);
+              if (d < 0 || v[3] < 0 || v[3] > 23 || v[4] < 0 || v[4] > 59) {
+                Get.snackbar('تاریخ یا ساعت درست نیست', 'مثلاً ۱۴۰۵ / ۸ / ۶ و ۱۴:۳۵', colorText: _text, backgroundColor: const Color(0xCC1E1F25));
+                return;
+              }
+              c.setClockManual(d, v[3] * 60 + v[4]);
+              Get.back();
+            },
+            child: const Text('ذخیره'),
+          ),
+        ],
+      ),
+    ));
+  }
+
   Widget _clockCard() {
     if (!c.clockKnown.value) return const SizedBox.shrink();
     String? t;

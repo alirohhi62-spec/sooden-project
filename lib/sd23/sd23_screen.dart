@@ -906,8 +906,12 @@ class Sd23Screen extends StatelessWidget {
     final run = c.isOn(k) && 'XZTOE'.contains(t);
     final mark = c.highlight.value == k;
     final cfk = c.cf[k];
-    String? btn;
-    VoidCallback? onBtn;
+    String? btn, btn2;
+    VoidCallback? onBtn, onBtn2;
+    if (t == 'Z' && c.installer.value && cfk != null) {               // نصاب: چراغ خواب و پل‌هایی که خاموش می‌شوند
+      btn2 = 'پل‌ها';
+      onBtn2 = () => Get.to(() => Sd23MaskEditor(mode: 'sleep', index: k));
+    }
     if (t == 'S' || t == 'Q') {
       btn = 'ویرایش';
       onBtn = () => Get.to(() => Sd23MaskEditor(mode: t == 'S' ? 'custom' : 'group', index: k));
@@ -959,11 +963,11 @@ class Sd23Screen extends StatelessWidget {
             ),
           ),
         ),
-        if (btn != null)
+        for (final b in [if (btn2 != null) [btn2, onBtn2], if (btn != null) [btn, onBtn]])
           Padding(
             padding: const EdgeInsets.only(left: 10),
             child: GestureDetector(
-              onTap: onBtn,
+              onTap: b[1] as VoidCallback?,
               child: Container(
                 height: 36,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -973,7 +977,7 @@ class Sd23Screen extends StatelessWidget {
                   color: _amber.withValues(alpha: .08),
                   border: Border.all(color: _amber.withValues(alpha: .55)),
                 ),
-                child: Text(btn, style: const TextStyle(color: _amber, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                child: Text(b[0] as String, style: const TextStyle(color: _amber, fontSize: 11.5, fontWeight: FontWeight.w600)),
               ),
             ),
           ),

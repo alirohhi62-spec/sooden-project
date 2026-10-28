@@ -255,7 +255,7 @@ class Sim12Controller extends GetxController {
   void reload() {
     _queue
       ..clear()
-      ..addAll(['@M_CLK', Sd23Controller.clockCommand(), '@M_LAY', '@K', '@M_CAP', '@X1Z', '@M_SIM', '@M_EV'])
+      ..addAll(['@M_CLK', if (Sd23Controller.phoneClock) Sd23Controller.clockCommand(), '@M_LAY', '@K', '@M_CAP', '@X1Z', '@M_SIM', '@M_EV'])
       ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
       // سناریوها (پل‌ها و زمان خروج)، مستر و پرده‌ها (زمان حرکت برای درصد)
       ..addAll([for (final n in [16, 17, 18, 19, 20, 22, 24, 25, 26, 27]) '@M_CF#${_two(n)}'])

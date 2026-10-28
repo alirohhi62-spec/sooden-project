@@ -104,7 +104,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(s.cf[20]?.secs16, 20);
     expect(find.textContaining('خاموشی همه بعد از'), findsOneWidget);
-    expect(find.text('EXIT'), findsWidgets);
+    expect(find.text('Exit'), findsWidgets);
 
     // پنل ۲۰ پل (فقط روشنایی) وصل شد: صفحه‌ی خودش
     c.onRaw(utf8.encode(r'$MDL=SD23-p20-1.0$'));
