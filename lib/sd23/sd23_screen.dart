@@ -380,7 +380,7 @@ class Sd23Screen extends StatelessWidget {
     for (int k = 0; k < 8; k++) {
       if (c.kindOf(k) != '-') n = k + 1;
     }
-    Widget key(int k) => SizedBox(height: 44, child: FittedBox(child: SizedBox(width: 64, height: 32, child: _miniKey(k))));
+    Widget key(int k) => Expanded(child: SizedBox(height: 44, child: FittedBox(child: SizedBox(width: 64, height: 32, child: _miniKey(k)))));
     Widget face;
     double w, ratio;
     if (n <= 2) {
@@ -408,7 +408,8 @@ class Sd23Screen extends StatelessWidget {
   }
 
   /// یک کلید کوچک: آیکون + نوشته (کلیدهای صفحه‌کلید فقط نوشته)
-  Widget _miniKey(int k) {
+  /// big: ۱۲ اقتصادی (آیکون و نوشته درشت‌تر نسبت به جای کلید)
+  Widget _miniKey(int k, {bool big = false}) {
     final t = c.kindOf(k);
     final lit = _litOf(k);
     final base = _groupColor(c.groupOf(k));
@@ -422,8 +423,8 @@ class Sd23Screen extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => _pickOnPanel(k),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2.5),
-        height: 28,
+        margin: EdgeInsets.symmetric(vertical: big ? 0 : 2.5),
+        height: big ? 33 : 28,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: mark ? _amber : Colors.transparent, width: 1.4),
@@ -437,7 +438,7 @@ class Sd23Screen extends StatelessWidget {
                       child: Text(c.labelOf(k),
                           style: TextStyle(
                               color: Sd23Controller.isDigitKind(t) && lit == null ? const Color(0xFFFFE600) : fg,
-                              fontSize: Sd23Controller.isDigitKind(t) ? 13 : scnText ? 9 : 7.5,
+                              fontSize: Sd23Controller.isDigitKind(t) ? 13 : scnText ? 10 : 7.5,
                               fontWeight: FontWeight.w600,
                               shadows: glow)),
                     ),
@@ -446,11 +447,11 @@ class Sd23Screen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      PanelIcons.icon(c.iconOf(k), fg, 14),
+                      PanelIcons.icon(c.iconOf(k), fg, big ? 20 : 14),
                       Text(c.labelOf(k),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: fg, fontSize: 7.5, height: 1.0, fontWeight: FontWeight.w600, shadows: glow)),
+                          style: TextStyle(color: fg, fontSize: big ? 9 : 7.5, height: 1.0, fontWeight: FontWeight.w600, shadows: glow)),
                     ],
                   ),
       ),
@@ -483,7 +484,7 @@ class Sd23Screen extends StatelessWidget {
         }
         return Stack(children: [
           for (final e in _e12Box.entries)
-            box(e.value, FittedBox(fit: BoxFit.contain, child: SizedBox(width: 33 * (e.value[2] - e.value[0]) / (e.value[3] - e.value[1]), height: 33, child: _miniKey(e.key)))),
+            box(e.value, FittedBox(fit: BoxFit.contain, child: SizedBox(width: 33 * (e.value[2] - e.value[0]) / (e.value[3] - e.value[1]), height: 33, child: _miniKey(e.key, big: true)))),
           box(const [808, 552, 855, 589], const FittedBox(child: Icon(Icons.wifi, color: Color(0x99FFFFFF))), grow: 1),
         ]);
       }),
