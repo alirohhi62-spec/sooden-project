@@ -46,6 +46,8 @@ class _Sd23MaskEditorState extends State<Sd23MaskEditor> {
   bool get _master => widget.mode == 'master';
   bool get _group => widget.mode == 'group' || _master;
   bool get _phone => widget.mode == 'phone';
+  /// SLEEP: «چراغ خواب» = روشن در پایان، «خاموش شود»، «دست نخورد»
+  bool get _sleep => widget.mode == 'sleep';
 
   @override
   void initState() {
@@ -225,7 +227,11 @@ class _Sd23MaskEditorState extends State<Sd23MaskEditor> {
         ? (_origName.isEmpty ? 'سناریوی جدید گوشی' : 'سناریوی «$_origName»')
         : _master
             ? 'پل‌های مستر «${c.labelOf(widget.index)}»'
-            : (_group ? 'گروه «${c.labelOf(widget.index)}»' : 'سناریوی «${c.labelOf(widget.index)}»');
+            : (_group
+                ? 'گروه «${c.labelOf(widget.index)}»'
+                : _sleep
+                    ? 'پل‌های «${c.labelOf(widget.index)}»'
+                    : 'سناریوی «${c.labelOf(widget.index)}»');
     final rows = <Widget>[];
     if (_group) {
       for (final k in _poles) {
@@ -249,7 +255,8 @@ class _Sd23MaskEditorState extends State<Sd23MaskEditor> {
       }
       for (final k in _poles) {
         rows.add(_row(c.labelOf(k), _pole[k] == 0 ? _red : (_pole[k] == 2 ? const Color(0x8CF2F4F7) : _text),
-            _seg(['روشن', 'خاموش', '—'], _pole[k] ?? 2, (v) => _pole[k] = v, colors: const [_red, _text, _muted])));
+            _seg(_sleep ? ['چراغ خواب', 'خاموش شود', 'دست نخورد'] : ['روشن', 'خاموش', '—'], _pole[k] ?? 2, (v) => _pole[k] = v,
+                colors: const [_red, _text, _muted])));
       }
     }
     return Scaffold(
@@ -297,6 +304,8 @@ class _Sd23MaskEditorState extends State<Sd23MaskEditor> {
                       ? 'پل‌هایی را که مستر روشن و خاموش کند تیک بزنید. با لمس مستر: اگر همه روشن‌اند همه خاموش، وگرنه همه روشن.'
                       : _group
                       ? 'پل‌های این گروه را انتخاب کنید. با لمس کلید روی پنل: همه با هم روشن، یا اگر یکی روشن است همه خاموش.'
+                      : _sleep
+                      ? 'آخر زمان خواب: «چراغ خواب» روشن می‌ماند (یا روشن می‌شود)، «خاموش شود» خاموش می‌شود، «دست نخورد» همان‌طور می‌ماند.'
                       : 'برای هر پل: روشن، خاموش یا «—» (بدون تغییر).',
                   style: const TextStyle(color: _muted, fontSize: 11.5, height: 1.6)),
             ),

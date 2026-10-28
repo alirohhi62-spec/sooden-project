@@ -1,0 +1,23 @@
+# همه‌ی تست‌های اپ با هم (دستی از Actions، یا با هر بارگذاری روی شاخه‌های release-*)؛ گزارش در خروجی همین اجرا
+name: All tests
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'release-*'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --update-goldens 2>&1 | tee test-log.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-log
+          path: test-log.txt

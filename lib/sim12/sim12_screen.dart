@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../panel12/panel12_screen.dart' show askInstallerPin;
+import '../sd23/sd23_controller.dart' show Sd23Controller;
+import '../sd23/sd23_screen.dart' show Sd23Screen;
 import '../sd23/sd23_vacation.dart';
 import 'sim12_controller.dart';
 
@@ -96,6 +98,7 @@ class Sim12Screen extends StatelessWidget {
               return Column(children: [
                 _header(),
                 _panelTabs(context),
+                const Sd23Screen().miniPanel(),
                 if (c.smsMode) _smsBanner(),
                 _notice(),
                 Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 0), child: _peerZone())),
@@ -128,9 +131,11 @@ class Sim12Screen extends StatelessWidget {
           child: GestureDetector(
             // نگه داشتن عنوان: ورود نصاب (مثل بقیه‌ی پنل‌ها)
             onLongPress: () => askInstallerPin(() => c.setInstaller(true)),
-            child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('پنل سیمکارتی', style: TextStyle(color: _text, fontSize: 17, fontWeight: FontWeight.w700)),
-              Text('۱۲ پل، دزدگیر، سیمکارت', style: TextStyle(color: _muted, fontSize: 12)),
+            // پنل ۲: اسم مدل خودش (مثل وقتی تنهاست)
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(c.peerView && c.peerModelName.isNotEmpty ? c.peerModelName : 'پنل سیمکارتی',
+                  style: const TextStyle(color: _text, fontSize: 17, fontWeight: FontWeight.w700)),
+              Text(c.peerView ? 'از راه پنل سیمکارتی' : '۱۲ پل، دزدگیر، سیمکارت', style: const TextStyle(color: _muted, fontSize: 12)),
             ]),
           ),
         ),
@@ -158,56 +163,23 @@ class Sim12Screen extends StatelessWidget {
   Widget _panelPhoto(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: AspectRatio(
-          aspectRatio: 1000 / 740,
-          child: LayoutBuilder(builder: (ctx, box) {
-            final w = box.maxWidth, h = box.maxHeight;
-            return Stack(children: [
-              Positioned.fill(child: Image.asset('assets/images/sim12_panel.jpg', fit: BoxFit.cover)),
-              for (int k = 0; k < Sim12Controller.keyCount; k++) _photoKey(k, _xy[k][0] / 2000 * w, _xy[k][1] / 1481 * h, w),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Row(children: [
-                  _chip(_alarmText, _alarmColor),
-                  const SizedBox(width: 6),
-                  _chip('آنتن ${Sim12Controller.faNum(c.bars.value)}/۵', const Color(0x99000000)),
-                ]),
-              ),
-            ]);
-          }),
-        ),
-      ),
-    );
-  }
-
-  Widget _photoKey(int k, double x, double y, double w) {
-    final on = c.isOn(k);
-    final pole = k < 12;
-    final s = w / 366;
-    final bw = (pole ? 18 : 22) * s, bh = (pole ? 5 : 22) * s;
-    final hit = 34.0 * s;
-    return Positioned(
-      left: x - hit / 2,
-      top: y - hit / 2,
-      width: hit,
-      height: hit,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () { if (c.installer.value) { _editKey(k); } else { c.press(k); } },
-        child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: bw,
-            height: bh,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(pole ? 3 : 11 * s),
-              color: pole ? (on ? _redLit : const Color(0xD9FFFFFF)) : (on ? const Color(0x55FF3B4E) : Colors.transparent),
-              boxShadow: on ? [BoxShadow(color: _redLit.withValues(alpha: .9), blurRadius: 8 * s, spreadRadius: 1.5 * s)] : null,
-            ),
-          ),
+      child: Sim12Photo(
+        isOn: c.isOn,
+        onTap: (k) {
+          if (c.installer.value) {
+            _editKey(k);
+          } else {
+            c.press(k);
+          }
+        },
+        overlay: Positioned(
+          top: 8,
+          right: 8,
+          child: Row(children: [
+            _chip(_alarmText, _alarmColor),
+            const SizedBox(width: 6),
+            _chip('آنتن ${Sim12Controller.faNum(c.bars.value)}/۵', const Color(0x99000000)),
+          ]),
         ),
       ),
     );
@@ -388,7 +360,7 @@ class Sim12Screen extends StatelessWidget {
           child: Row(children: [
             Expanded(
               child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('کلید ${Sim12Controller.faNum(k + 1)}',
+                Text(Sd23Controller.instance.labelOf(k),
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _text, fontSize: 13.5, fontWeight: FontWeight.w600)),
                 Text(c.peerKindText(k), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _muted, fontSize: 10.5)),
               ]),
@@ -1434,6 +1406,16 @@ class Sim12Screen extends StatelessWidget {
               alignment: AlignmentDirectional.centerEnd,
               child: TextButton(onPressed: () => _editNumber(context), child: const Text('تغییر شماره')),
             ),
+          if (c.panelNumber.value.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              const Expanded(
+                child: Text('تنظیم خودکار ساعت پنل بعد از قطع برق\n(یک پیامک از این گوشی، فقط وقتی پنل ساعت ندارد)',
+                    style: TextStyle(color: _text, fontSize: 12.5, height: 1.6)),
+              ),
+              Switch(value: c.autoTime.value == true, activeThumbColor: _amber, onChanged: (v) => c.setAutoTime(v)),
+            ]),
+          ],
           if (c.savedCode.value.isNotEmpty)
             Align(
               alignment: AlignmentDirectional.centerEnd,
@@ -1443,6 +1425,36 @@ class Sim12Screen extends StatelessWidget {
       ),
       SizedBox(height: 44, child: _bigBtn('تازه کردن وضعیت', _key, _line, c.refresh)),
     ]);
+  }
+
+  /// یک بار: اجازه‌ی تنظیم خودکار ساعت پنل با پیامک
+  void _askAutoTime() {
+    _dlg(Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        backgroundColor: _card,
+        title: const Text('تنظیم خودکار ساعت پنل', style: TextStyle(color: _text, fontSize: 15)),
+        content: const Text(
+            'اگر برق پنل برود و پنل بعد از برگشتن برق ساعت نداشته باشد (مودم نیست و شبکه‌ی اپراتور هم ساعت نداده)، '
+            'پنل یک پیامک «برق پنل وصل شد» به شماره‌ی اول می‌فرستد. اجازه می‌دهی این گوشی خودکار یک پیامک کوتاه جواب بدهد '
+            'تا ساعت پنل و برنامه‌ی مسافرت درست بماند؟\n\nهر بار قطع برق حداکثر یک پیامک؛ بعداً از همین بخش هم عوض می‌شود.',
+            style: TextStyle(color: _text, fontSize: 13, height: 1.7)),
+        actions: [
+          TextButton(
+              onPressed: () {
+                Get.back();
+                c.setAutoTime(false);
+              },
+              child: const Text('نه')),
+          TextButton(
+              onPressed: () {
+                Get.back();
+                c.setAutoTime(true);
+              },
+              child: const Text('بله، اجازه می‌دهم')),
+        ],
+      ),
+    ));
   }
 
   void _editNumber(BuildContext context) {
@@ -1466,6 +1478,7 @@ class Sim12Screen extends StatelessWidget {
               onPressed: () {
                 c.setPanelNumber(t.text.trim());
                 Get.back();
+                if (c.panelNumber.value.isNotEmpty && c.autoTime.value == null) _askAutoTime();
               },
               child: const Text('ذخیره')),
         ],
@@ -1538,4 +1551,61 @@ class Sim12ElsewherePage extends StatelessWidget {
         child: const Text('برای پنل سیمکارتی، کلیدها، دزدگیر، پرده، سناریو و سیمکارت همه در صفحه‌ی اصلی پنل هستند.',
             textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: TextStyle(color: _muted, fontSize: 14, height: 1.7)),
       );
+}
+
+/// عکس پنل سیمکارتی با چراغ هر کلید روی جای خودش؛ هم در صفحه‌ی خود پنل، هم وقتی این پنل «پنل ۲» است
+class Sim12Photo extends StatelessWidget {
+  final bool Function(int k) isOn;
+  final void Function(int k)? onTap;
+  final Widget? overlay;
+
+  const Sim12Photo({super.key, required this.isOn, this.onTap, this.overlay});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: AspectRatio(
+        aspectRatio: 1000 / 740,
+        child: LayoutBuilder(builder: (ctx, box) {
+          final w = box.maxWidth, h = box.maxHeight;
+          return Stack(children: [
+            Positioned.fill(child: Image.asset('assets/images/sim12_panel.jpg', fit: BoxFit.cover)),
+            for (int k = 0; k < Sim12Controller.keyCount; k++) _key(k, _xy[k][0] / 2000 * w, _xy[k][1] / 1481 * h, w),
+            if (overlay != null) overlay!,
+          ]);
+        }),
+      ),
+    );
+  }
+
+  Widget _key(int k, double x, double y, double w) {
+    final on = isOn(k);
+    final pole = k < 12;
+    final s = w / 366;
+    final bw = (pole ? 18 : 22) * s, bh = (pole ? 5 : 22) * s;
+    final hit = 34.0 * s;
+    return Positioned(
+      left: x - hit / 2,
+      top: y - hit / 2,
+      width: hit,
+      height: hit,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap == null ? null : () => onTap!(k),
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: bw,
+            height: bh,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(pole ? 3 : 11 * s),
+              color: pole ? (on ? _redLit : const Color(0xD9FFFFFF)) : (on ? const Color(0x55FF3B4E) : Colors.transparent),
+              boxShadow: on ? [BoxShadow(color: _redLit.withValues(alpha: .9), blurRadius: 8 * s, spreadRadius: 1.5 * s)] : null,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

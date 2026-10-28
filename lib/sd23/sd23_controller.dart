@@ -6,6 +6,7 @@ import 'package:get_storage/get_storage.dart';
 
 import '../data/data_sources/remote_data_sources/socket/socket.dart';
 import '../panel12/panel12_controller.dart';
+import '../panel12/panel12_vacation.dart' show Jalali;
 import '../core/utils/loc_store.dart';
 import 'sd23_simulator.dart';
 
@@ -181,6 +182,7 @@ class Sd23Controller extends GetxController {
     'p2': 'دو پل',
     'p3m': 'سه پل + مستر',
     'p4': 'چهار پل',
+    'p12': 'دزدگیر سیمکارتی',
   };
 
   // ---------- وضعیت (همه از خود پنل) ----------
@@ -230,6 +232,10 @@ class Sd23Controller extends GetxController {
   final RxBool clockOk = true.obs;
   final RxBool clockKnown = false.obs;
   final RxString clockSrc = ''.obs;
+  /// در این اتصال دیده شد که پنل بعد از قطع برق با ساعت تقریبی (B) کار کرده (پیامش تا اتصال بعدی می‌ماند)
+  final RxBool clockWasEstimate = false.obs;
+  /// لحظه‌ای که ساعت پنل خوانده شد (برای نمایش ساعت پنل تا حالا)
+  DateTime clockAt = DateTime.now();
   final RxInt clockDay = 0.obs, clockMin = 0.obs;
 
   // صفحه‌کلید دزدگیر
@@ -337,9 +343,9 @@ class Sd23Controller extends GetxController {
       case 'L':
         return k < 20 ? 'چراغ ${faNum(k + 1)}' : 'کلید ${faNum(k + 1)}';
       case 'M':
-        return 'مستر';
+        return 'Master';
       case 'T':
-        return 'سرویسی';
+        return 'Exit';                                     // سرویسی: روی شیشه همان «Exit» با شکل در چاپ می‌شود
       case 'O':
         return 'تایمر خاموشی';
       case 'D':
@@ -359,9 +365,9 @@ class Sd23Controller extends GetxController {
       case 'G':
         return 'دور تند';
       case 'X':
-        return 'EXIT';
+        return 'Exit';
       case 'Z':
-        return 'SLEEP';
+        return 'Sleep';
       case 'E':
         return 'آسانسور';
       case 'S':
@@ -413,6 +419,7 @@ class Sd23Controller extends GetxController {
       case 'M':
         return 'master';
       case 'T':
+        return 'exit';                                     // سرویسی: شکل در (مثل چاپ روی شیشه)
       case 'P':
       case 'Y':
       case 'S':
@@ -505,6 +512,7 @@ class Sd23Controller extends GetxController {
 
   /// پیام $MDL=SD23-...$ رسید: صفحه‌ی همین پنل ساخته می‌شود و همه‌چیز از پنل خوانده می‌شود
   void activate(String mdl) {
+    clockWasEstimate.value = false;
     if (peerView) _showOwn();
     // mdl: SD23-a14-1.0
     final p = mdl.split('-');
@@ -529,7 +537,7 @@ class Sd23Controller extends GetxController {
   void reload() {
     _loadQueue
       ..clear()
-      ..addAll([clockCommand(), '@M_LAY', '@M_CAP', '@K', '@X1Z'])
+      ..addAll(['@M_CLK', if (phoneClock) clockCommand(), '@M_LAY', '@M_CAP', '@K', '@X1Z'])   // ساعت پنل اول (تقریبی بود؟) بعد ساعت گوشی
       ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
       ..add('@M_VAC');
     _loadTimer?.cancel();
@@ -822,6 +830,8 @@ class Sd23Controller extends GetxController {
         clockDay.value = int.tryParse(p[2]) ?? 0;
         clockMin.value = int.tryParse(p[3]) ?? 0;
         clockSrc.value = p[4];
+        clockAt = DateTime.now();
+        if (p[4] == 'B') clockWasEstimate.value = true;
       } else {
         clockSrc.value = '';
       }
@@ -870,7 +880,46 @@ class Sd23Controller extends GetxController {
         '${n.second.toString().padLeft(2, '0')}';
   }
 
-  void syncClock() => _send(clockCommand());
+  void syncClock() {
+    if (phoneClock) _send(clockCommand());
+  }
+
+  /// ساعت پنل از گوشی گرفته شود (پیش‌فرض)؛ بعد از «تنظیم دستی» تا وقتی کاربر دوباره «با ساعت گوشی» را بزند، نه
+  static bool get phoneClock {
+    try {
+      return LocStore.read<bool>('clk_manual') != true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// «تنظیم با ساعت گوشی»
+  void setClockFromPhone() {
+    try {
+      LocStore.write('clk_manual', false);
+    } catch (_) {}
+    _send(clockCommand());
+    Timer(const Duration(milliseconds: 700), () => _send('@M_CLK'));
+  }
+
+  /// تنظیم دستی (ساعت گوشی درست نیست): روز از ۲۰۰۰/۰۱/۰۱ و دقیقه‌ی روز، به وقت ایران
+  void setClockManual(int day, int minute) {
+    try {
+      LocStore.write('clk_manual', true);
+    } catch (_) {}
+    _send('&CLK#${day.toString().padLeft(5, '0')}#${minute.toString().padLeft(4, '0')}#00');
+    Timer(const Duration(milliseconds: 700), () => _send('@M_CLK'));
+  }
+
+  /// روز (شمارش پنل) یک تاریخ شمسی؛ -۱ = تاریخ نادرست
+  static int dayOfJalali(int jy, int jm, int jd) {
+    final t = iranDay();
+    for (int d = t - 800; d <= t + 800; d++) {
+      final j = Jalali.of(Panel12Controller.dateOf(d));
+      if (j[0] == jy && j[1] == jm && j[2] == jd) return d;
+    }
+    return -1;
+  }
 
   /// چراغ‌هایی که برنامه‌ی مسافرت روشن و خاموش می‌کند (پل معمولی و خاموشی تأخیری، جای ۱ تا ۲۰)
   List<int> get vacLights => [for (int k = 0; k < 20; k++) if (kindOf(k) == 'L' || kindOf(k) == 'D') k];
@@ -990,7 +1039,7 @@ class Sd23Controller extends GetxController {
 
   /// وقتی زبانه‌ی مسافرت باز می‌شود: ساعت و برنامه دوباره از پنل
   void loadVacation() {
-    _queue(clockCommand());
+    if (phoneClock) _queue(clockCommand());
     _queue('@M_VAC');
   }
 

@@ -89,6 +89,9 @@ class Sim12Controller extends GetxController {
   final RxString panelNumber = ''.obs;
   final RxBool smsWaiting = false.obs;
   final RxString lastSmsAt = ''.obs;
+  /// بعد از قطع برق، اگر پنل ساعت نداشت و «برق پنل وصل شد» فرستاد، گوشی خودکار یک پیامک جواب بدهد (ساعت پنل)؛
+  /// null = هنوز از کاربر پرسیده نشده
+  final Rxn<bool> autoTime = Rxn<bool>();
 
   // ---------- نمایش ----------
   final RxString tab = 'keys'.obs;
@@ -115,12 +118,15 @@ class Sim12Controller extends GetxController {
   static const _kNumber = 'sim12_panel_number';
   static const _kCode = 'sim12_code';
   static const _kForce = 'sim12_force_sms';
+  static const _kAutoTime = 'sim12_auto_time';
   static const _kNames = 'sim12_panel_names';
 
   void _loadLocal() {
     panelNumber.value = LocStore.read<String>(_kNumber) ?? '';
     savedCode.value = LocStore.read<String>(_kCode) ?? '';
     forceSms.value = LocStore.read<bool>(_kForce) ?? false;
+    autoTime.value = LocStore.read<bool>(_kAutoTime);
+    if (autoTime.value == true && panelNumber.value.isNotEmpty) Sim12Sms.autoTime(panelNumber.value, true);
     final names = <int, String>{};
     try {
       final v = LocStore.read<Map>(_kNames);
@@ -164,8 +170,8 @@ class Sim12Controller extends GetxController {
   static String defaultName(int k) {
     if (k < 12) return 'پل ${faNum(k + 1)}';
     if (k < 15) return ['بخاری', 'پریز', 'کولر'][k - 12];
-    if (k < 21) return ['سناریو ۱', 'سناریو ۲', 'سناریو ۳', 'سناریو ۴', 'خروج', 'قفل کودک'][k - 15];
-    if (k == 21) return 'مستر';
+    if (k < 21) return ['سناریو ۱', 'سناریو ۲', 'سناریو ۳', 'سناریو ۴', 'Exit', 'قفل کودک'][k - 15];
+    if (k == 21) return 'Master';
     if (k == 22) return 'آسانسور';
     return ['پرده ۱ باز', 'پرده ۱ بسته', 'پرده ۲ باز', 'پرده ۲ بسته'][k - 23];
   }
@@ -233,6 +239,7 @@ class Sim12Controller extends GetxController {
     final p = mdl.split('-');
     version.value = p.length > 1 ? p.sublist(1).join('-') : '';
     active.value = true;
+    Sd23Controller.instance.clockWasEstimate.value = false;
     hasPeer.value = false;                                  // پنل دوم را خود پنل دوباره می‌گوید ($CAP)
     panel.value = 0;
     peerLay.value = '';
@@ -248,7 +255,7 @@ class Sim12Controller extends GetxController {
   void reload() {
     _queue
       ..clear()
-      ..addAll([Sd23Controller.clockCommand(), '@M_LAY', '@K', '@M_CAP', '@X1Z', '@M_SIM', '@M_EV'])
+      ..addAll(['@M_CLK', if (Sd23Controller.phoneClock) Sd23Controller.clockCommand(), '@M_LAY', '@K', '@M_CAP', '@X1Z', '@M_SIM', '@M_EV'])
       ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
       // سناریوها (پل‌ها و زمان خروج)، مستر و پرده‌ها (زمان حرکت برای درصد)
       ..addAll([for (final n in [16, 17, 18, 19, 20, 22, 24, 25, 26, 27]) '@M_CF#${_two(n)}'])
@@ -334,9 +341,28 @@ class Sim12Controller extends GetxController {
   }
 
   void setPanelNumber(String n) {
+    final old = panelNumber.value;
     panelNumber.value = n.replaceAll(RegExp(r'[^0-9+]'), '');
     try {
       LocStore.write(_kNumber, panelNumber.value);
+    } catch (_) {}
+    if (autoTime.value == true && old != panelNumber.value) {
+      if (old.isNotEmpty) Sim12Sms.autoTime(old, false);
+      if (panelNumber.value.isNotEmpty) Sim12Sms.autoTime(panelNumber.value, true);
+    }
+  }
+
+  /// اجازه‌ی جواب خودکار به «برق پنل وصل شد» (کاربر یک بار موقع وارد کردن شماره‌ی پنل جواب می‌دهد، بعد از بخش سیمکارت)
+  Future<void> setAutoTime(bool on) async {
+    var ok = true;
+    if (panelNumber.value.isNotEmpty) ok = await Sim12Sms.autoTime(panelNumber.value, on);
+    if (on && !ok) {
+      _say('بدون اجازه‌ی پیامک این کار ممکن نیست', 'err');
+      on = false;
+    }
+    autoTime.value = on;
+    try {
+      LocStore.write(_kAutoTime, on);
     } catch (_) {}
   }
 
@@ -967,12 +993,14 @@ class Sim12Controller extends GetxController {
       if (l.length > peerKeyCount) l = l.substring(0, peerKeyCount);
       peerLay.value = l;
       peerOnline.value = p[3] == '1';
+      _syncPeerFace();
     } else if (m.startsWith('P2K#') && m.length >= 10) {
       final v = int.tryParse(m.substring(4, 10), radix: 16);
       if (v == null) return;
       final changed = v ^ peerBits.value;
       peerBits.value = v;
       if (m.length >= 12) peerOnline.value = m[11] == '1';
+      _syncPeerFace();
       for (int k = 0; k < peerKeyCount; k++) {
         if ((changed >> k) & 1 == 1) _peerDone(k);
       }
@@ -1032,7 +1060,21 @@ class Sim12Controller extends GetxController {
   void selectPanel(int i) {
     if (i == 1 && !hasPeer.value) return;
     panel.value = i;
+    _syncPeerFace();
     if (i == 1 && !smsMode) _sendWifi('@M_P2');           // چیدمان و وضعیت تازه‌ی پنل دوم
+  }
+
+  /// تصویر پنل ۲ همان تصویری است که آن پنل به‌تنهایی دارد (صفحه‌ی پنل ۲۳ کلید / ۱ تا ۶ پل)
+  void _syncPeerFace() {
+    if (!peerView) return;
+    final d = Sd23Controller.instance;
+    final n = Sd23Controller.keyCount;
+    d.model.value = peerModel.value;
+    d.lay.value = peerLay.value.padRight(n, '-').substring(0, n);
+    d.bits.value = peerBits.value;
+    d.labels.assignAll(List<String>.filled(n, ''));
+    d.iconIds.assignAll(List<String>.filled(n, ''));
+    d.layKnown.value = true;
   }
 
   /// اسم سربرگ هر پنل (روی همین گوشی)

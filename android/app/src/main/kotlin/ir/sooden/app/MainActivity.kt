@@ -38,6 +38,10 @@ class MainActivity : FlutterActivity() {
                 } catch (e: Exception) {
                     result.success(false)
                 }
+            } else if (call.method == "autoTime") {
+                // اجازه‌ی جواب خودکار به «برق پنل وصل شد» برای شماره‌ی این پنل (PowerSmsReceiver)
+                PowerSmsReceiver.set(applicationContext, call.argument<String>("number") ?: "", call.argument<Boolean>("on") ?: false)
+                result.success(true)
             } else if (call.method == "bindWifi") {
                 // وای‌فای پنل اینترنت ندارد: اندروید ارتباط را از داده‌ی همراه می‌فرستد. فقط این اپ به وای‌فای بسته می‌شود
                 // (بقیه‌ی برنامه‌ها مثل همیشه). وای‌فای قطع و دوباره وصل شود (ماژول پنل کانال عوض می‌کند، یا گوشی

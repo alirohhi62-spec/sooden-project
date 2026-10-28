@@ -66,12 +66,13 @@ void main() {
     await tester.tap(find.text('پنل ۲'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(s.peerView, isTrue);
-    expect(find.text('کلید ۱'), findsOneWidget);
-    expect(find.text('کلید ۴'), findsOneWidget);
+    expect(find.text('چراغ ۱'), findsWidgets);
+    expect(find.text('چراغ ۴'), findsWidgets);
+    expect(find.text('چهار پل'), findsWidgets);
     await expectLater(find.byType(Sim12Screen), matchesGoldenFile('goldens/sim12pair_2_peer.png'));
 
     // لمس کلید ۲: منتظر جواب پنل؛ با $P2K روشن می‌شود
-    await tester.tap(find.text('کلید ۲'));
+    await tester.tap(find.text('چراغ ۲').last);
     await tester.pump(const Duration(milliseconds: 100));
     expect(s.peerPending.contains(1), isTrue);
     expect(s.peerOn(1), isFalse);
