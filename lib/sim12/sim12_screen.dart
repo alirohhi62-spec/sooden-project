@@ -86,8 +86,24 @@ class Sim12Screen extends StatelessWidget {
             c.cf.values.toList();
             c.curtainPos.toList();
             c.scnWaiting.value;
+            c.hasPeer.value;
+            c.peerOnline.value;
+            c.peerBits.value;
+            c.peerLay.value;
+            c.peerPending.length;
+            c.panelNames.length;
+            if (c.peerView) {
+              return Column(children: [
+                _header(),
+                _panelTabs(context),
+                if (c.smsMode) _smsBanner(),
+                _notice(),
+                Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 0), child: _peerZone())),
+              ]);
+            }
             return Column(children: [
               _header(),
+              _panelTabs(context),
               if (c.installer.value) _installerBar(context),
               _panelPhoto(context),
               if (c.smsMode) _smsBanner(),
@@ -248,6 +264,151 @@ class Sim12Screen extends StatelessWidget {
           style: const TextStyle(color: _amberText, fontSize: 12),
         ),
       );
+
+  // ---------- پنل ۱ (همین پنل) و پنل ۲ (پنلی که با کابل شبکه به آن وصل است) ----------
+
+  /// فقط وقتی پنل بگوید پنل دوم دارد؛ نگه داشتن: تغییر اسم
+  Widget _panelTabs(BuildContext context) {
+    if (!c.hasPeer.value) return const SizedBox.shrink();
+    final sel = c.peerView ? 1 : 0, online = c.peerOnline.value;
+    Widget tabOf(int i) {
+      final on = sel == i;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => c.selectPanel(i),
+          onLongPress: () => _renamePanel(i),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 38,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: on ? _red.withValues(alpha: .18) : const Color(0x0AFFFFFF),
+              border: Border.all(color: on ? _red.withValues(alpha: .8) : const Color(0x1FFFFFFF)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Flexible(
+                child: Text(c.panelName(i),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: on ? _text : _muted, fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
+              if (i == 1) ...[
+                const SizedBox(width: 6),
+                Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: online ? _greenLit : _amber)),
+              ],
+            ]),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(13, 0, 13, 6),
+      child: Row(children: [tabOf(0), tabOf(1)]),
+    );
+  }
+
+  void _renamePanel(int i) {
+    final ctl = TextEditingController(text: c.panelNames[i] ?? '');
+    _dlg<void>(AlertDialog(
+      backgroundColor: _card,
+      title: Text('اسم ${c.panelName(i)}', style: const TextStyle(color: _text, fontSize: 16)),
+      content: TextField(
+        controller: ctl,
+        autofocus: true,
+        maxLength: 20,
+        style: const TextStyle(color: _text),
+        decoration: _f(const InputDecoration(hintText: 'مثلاً پذیرایی')),
+      ),
+      actions: [
+        TextButton(onPressed: () => Get.back<void>(), child: const Text('انصراف')),
+        TextButton(
+          onPressed: () {
+            c.renamePanel(i, ctl.text);
+            Get.back<void>();
+          },
+          child: const Text('ذخیره'),
+        ),
+      ],
+    ));
+  }
+
+  /// کلیدهای پنل ۲: همان چیدمانی که پروگرامر روی آن ریخته؛ وضعیت فقط از جواب پنل
+  Widget _peerZone() {
+    final keys = c.peerKeys;
+    final model = c.peerModelName;
+    return ListView(padding: const EdgeInsets.only(bottom: 12), children: [
+      Row(children: [
+        Expanded(
+            child: Text('${Sim12Controller.faNum(c.peerOnCount)} روشن', style: const TextStyle(color: _muted, fontSize: 12))),
+        if (model.isNotEmpty) Text(model, style: const TextStyle(color: _muted, fontSize: 12)),
+      ]),
+      const SizedBox(height: 6),
+      if (!c.peerOnline.value)
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _amber)),
+          child: const Text('پنل ۲ به این پنل وصل نیست (کابل شبکه بین دو پنل را بررسی کنید)',
+              style: TextStyle(color: _amberText, fontSize: 12.5)),
+        ),
+      if (keys.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 30),
+          child: Text('چیدمان پنل ۲ هنوز از پنل نرسیده', textAlign: TextAlign.center, style: TextStyle(color: _muted, fontSize: 13)),
+        )
+      else
+        _box(
+          'کلیدهای ${c.panelName(1)}',
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 2.9,
+            children: [for (final k in keys) _peerKey(k)],
+          ),
+        ),
+    ]);
+  }
+
+  Widget _peerKey(int k) {
+    final on = c.peerOn(k), wait = c.peerPending.contains(k);
+    return Material(
+      color: on ? _redBg : _key,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: on ? _red : _line)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => c.pressPeer(k),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(children: [
+            Expanded(
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('کلید ${Sim12Controller.faNum(k + 1)}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _text, fontSize: 13.5, fontWeight: FontWeight.w600)),
+                Text(c.peerKindText(k), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _muted, fontSize: 10.5)),
+              ]),
+            ),
+            wait
+                ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.6, color: _muted))
+                : Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: on ? _redLit : const Color(0xFF55575F),
+                      boxShadow: on ? [BoxShadow(color: _redLit.withValues(alpha: .7), blurRadius: 6)] : null,
+                    ),
+                  ),
+          ]),
+        ),
+      ),
+    );
+  }
 
   Widget _notice() {
     final t = c.message.value;

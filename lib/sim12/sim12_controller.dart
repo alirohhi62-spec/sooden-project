@@ -24,6 +24,8 @@ import 'sim12_sms.dart';
 ///   $ARM#ok|no|busy$   $SIM#g#b#op#credit$  (g ماژول، b آنتن ۰..۵، op اپراتور ۱ همراه اول ۲ ایرانسل ۳ رایتل، credit ریال یا - یا ?)
 ///   $EV#a;b;c$ (آخرین رویدادها، تازه‌ترین اول)، $EV1#a$ رویداد تازه؛ هر رویداد: روز.دقیقه.نوع.زون.منبع
 /// فرمان‌ها: @M_MDL @M_LAY @K @M_LBL#nn @X1Z @M_SIM @M_EV &K#nn &X1A#m#f#dddd &X1D#dddd &CRD Lbl#nn#ii~متن#
+/// پنل دوم (پنلی که با کابل شبکه به این پنل وصل است): @M_CAP -> $CAP#..P1$ ، @M_P2 -> $P2#مدل#حروف#وصل$ ،
+///   $P2K#xxxxxx#وصل$ (وضعیت کلیدهایش) ، &P2K#nn -> $P2A#nn#1|0$
 ///
 /// پیامک (وقتی وای‌فای در دسترس نیست): به شماره‌ی سیمکارت پنل، از گوشی‌ای که شماره‌اش روی پنل ثبت است.
 ///   #L5ON #L5OFF #K1ON #S2ON #P1OPEN #P1CLOSE #P1STOP #ON #12ON #FAST #OFF #CREDIT #STATUS
@@ -66,6 +68,19 @@ class Sim12Controller extends GetxController {
 
   final RxList<Sim12Event> events = <Sim12Event>[].obs;
 
+  // ---------- پنل دوم (دو پنل شبکه‌ای، از راه همین پنل) ----------
+  final RxBool hasPeer = false.obs;
+  /// پنلی که صفحه نشان می‌دهد: ۰ همین پنل سیمکارتی، ۱ پنل دوم
+  final RxInt panel = 0.obs;
+  final RxBool peerOnline = false.obs;
+  final RxString peerModel = ''.obs;
+  final RxString peerLay = ''.obs;
+  final RxInt peerBits = 0.obs;
+  final RxSet<int> peerPending = <int>{}.obs;
+  final RxMap<int, String> panelNames = <int, String>{}.obs;
+  final Map<int, Timer> _peerTimers = {};
+  bool get peerView => panel.value == 1 && hasPeer.value;
+
   // ---------- ارتباط ----------
   /// 'wifi' یا 'sms'
   final RxString link = 'wifi'.obs;
@@ -100,11 +115,21 @@ class Sim12Controller extends GetxController {
   static const _kNumber = 'sim12_panel_number';
   static const _kCode = 'sim12_code';
   static const _kForce = 'sim12_force_sms';
+  static const _kNames = 'sim12_panel_names';
 
   void _loadLocal() {
     panelNumber.value = LocStore.read<String>(_kNumber) ?? '';
     savedCode.value = LocStore.read<String>(_kCode) ?? '';
     forceSms.value = LocStore.read<bool>(_kForce) ?? false;
+    final names = <int, String>{};
+    try {
+      final v = LocStore.read<Map>(_kNames);
+      v?.forEach((k, x) {
+        final n = int.tryParse('$k');
+        if (n != null && '$x'.isNotEmpty) names[n] = '$x';
+      });
+    } catch (_) {}
+    panelNames.assignAll(names);
     try {
       final cp = LocStore.read<List>('sim12_curtain_pos');
       if (cp != null && cp.length == 2) curtainPos.assignAll([for (final x in cp) (x as num).toDouble()]);
@@ -150,8 +175,10 @@ class Sim12Controller extends GetxController {
     return l.isNotEmpty ? l : defaultName(k);
   }
 
-  String kindText(int k) {
-    switch (kindOf(k)) {
+  String kindText(int k) => _kindText(kindOf(k));
+
+  static String _kindText(String t) {
+    switch (t) {
       case 'D':
         return 'خاموشی تأخیری';
       case 'P':
@@ -206,6 +233,11 @@ class Sim12Controller extends GetxController {
     final p = mdl.split('-');
     version.value = p.length > 1 ? p.sublist(1).join('-') : '';
     active.value = true;
+    hasPeer.value = false;                                  // پنل دوم را خود پنل دوباره می‌گوید ($CAP)
+    panel.value = 0;
+    peerLay.value = '';
+    peerBits.value = 0;
+    peerPending.clear();
     reload();
   }
 
@@ -216,7 +248,7 @@ class Sim12Controller extends GetxController {
   void reload() {
     _queue
       ..clear()
-      ..addAll([Sd23Controller.clockCommand(), '@M_LAY', '@K', '@X1Z', '@M_SIM', '@M_EV'])
+      ..addAll([Sd23Controller.clockCommand(), '@M_LAY', '@K', '@M_CAP', '@X1Z', '@M_SIM', '@M_EV'])
       ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
       // سناریوها (پل‌ها و زمان خروج)، مستر و پرده‌ها (زمان حرکت برای درصد)
       ..addAll([for (final n in [16, 17, 18, 19, 20, 22, 24, 25, 26, 27]) '@M_CF#${_two(n)}'])
@@ -796,7 +828,17 @@ class Sim12Controller extends GetxController {
   // ---------- پیام‌های پنل ----------
 
   void handle(String m) {
-    if (m.startsWith('LAY#')) {
+    if (m.startsWith('CAP#')) {
+      final peer = m.contains('P1');
+      if (peer && !hasPeer.value && !_queue.contains('@M_P2')) {
+        _queue.add('@M_P2');
+        _pump();
+      }
+      hasPeer.value = peer;
+      if (!peer) panel.value = 0;
+    } else if (m.startsWith('P2')) {
+      _handlePeer(m);
+    } else if (m.startsWith('LAY#')) {
       var l = m.substring(4);
       if (l.length < keyCount) l = l.padRight(keyCount, '-');
       // پنلی که پروگرامر هنوز نقش کلیدها را ننوشته: همان چیدمان پیش‌فرض
@@ -906,6 +948,107 @@ class Sim12Controller extends GetxController {
   void _done(int k) {
     _keyTimers.remove(k)?.cancel();
     pendingKeys.remove(k);
+  }
+
+  // ---------- پنل دوم ----------
+
+  /// P2#مدل#حروف#وصل (یا P2#-) ، P2K#xxxxxx#وصل ، P2A#nn#1|0
+  void _handlePeer(String m) {
+    if (m.startsWith('P2#')) {
+      final p = m.split('#');
+      if (p.length < 4 || p[1] == '-') {
+        hasPeer.value = false;
+        panel.value = 0;
+        return;
+      }
+      hasPeer.value = true;
+      peerModel.value = p[1];
+      var l = p[2];
+      if (l.length > peerKeyCount) l = l.substring(0, peerKeyCount);
+      peerLay.value = l;
+      peerOnline.value = p[3] == '1';
+    } else if (m.startsWith('P2K#') && m.length >= 10) {
+      final v = int.tryParse(m.substring(4, 10), radix: 16);
+      if (v == null) return;
+      final changed = v ^ peerBits.value;
+      peerBits.value = v;
+      if (m.length >= 12) peerOnline.value = m[11] == '1';
+      for (int k = 0; k < peerKeyCount; k++) {
+        if ((changed >> k) & 1 == 1) _peerDone(k);
+      }
+    } else if (m.startsWith('P2A#') && m.length >= 8) {
+      final k = (int.tryParse(m.substring(4, 6)) ?? 0) - 1;
+      _peerDone(k);
+      if (m[7] != '1') _say('پنل ۲ الان با این پنل ارتباط ندارد (کابل شبکه را بررسی کنید)', 'err');
+    }
+  }
+
+  void _peerDone(int k) {
+    _peerTimers.remove(k)?.cancel();
+    peerPending.remove(k);
+  }
+
+  /// کلیدهای پنل دوم (۲۴ بیت وضعیت)
+  static const int peerKeyCount = 24;
+
+  String peerKind(int k) => k >= 0 && k < peerLay.value.length ? peerLay.value[k] : '-';
+  bool peerOn(int k) => ((peerBits.value >> k) & 1) == 1;
+
+  /// کلیدهای پنل دوم که کاری دارند (خالی و صفحه‌کلید دزدگیر نه)
+  List<int> get peerKeys => [
+        for (int k = 0; k < peerLay.value.length; k++)
+          if (peerKind(k) != '-' && peerKind(k) != 'n' && peerKind(k) != 'c' && !Sd23Controller.isDigitKind(peerKind(k))) k
+      ];
+
+  String peerKindText(int k) {
+    final t = peerKind(k);
+    if (t == 'L') return 'معمولی';
+    return t == 'U' || t == 'W' ? (t == 'U' ? 'پرده باز' : 'پرده بسته') : _kindText(t);
+  }
+
+  int get peerOnCount => peerKeys.where(peerOn).length;
+
+  String get peerModelName => Sd23Controller.modelNames[peerModel.value] ?? '';
+
+  /// لمس یک کلید پنل دوم (فقط با وای‌فای)
+  void pressPeer(int k) {
+    if (smsMode) {
+      _say('پنل ۲ با پیامک کار نمی‌کند؛ فقط با وای‌فای', 'err');
+      return;
+    }
+    if (!peerOnline.value) {
+      _say('پنل ۲ به این پنل وصل نیست (کابل شبکه را بررسی کنید)', 'err');
+      return;
+    }
+    peerPending.add(k);
+    _peerTimers[k]?.cancel();
+    _peerTimers[k] = Timer(const Duration(seconds: 4), () {
+      peerPending.remove(k);
+      _say('پنل جواب نداد', 'err');
+    });
+    _sendWifi('&P2K#${_two(k + 1)}');
+  }
+
+  void selectPanel(int i) {
+    if (i == 1 && !hasPeer.value) return;
+    panel.value = i;
+    if (i == 1 && !smsMode) _sendWifi('@M_P2');           // چیدمان و وضعیت تازه‌ی پنل دوم
+  }
+
+  /// اسم سربرگ هر پنل (روی همین گوشی)
+  String panelName(int i) => panelNames[i] ?? (i == 0 ? 'پنل ۱ (سیمکارتی)' : 'پنل ۲');
+
+  void renamePanel(int i, String name) {
+    var t = name.replaceAll(RegExp(r'[#\$!&@~\r\n%]'), '').trim();
+    if (t.length > 20) t = t.substring(0, 20);
+    if (t.isEmpty) {
+      panelNames.remove(i);
+    } else {
+      panelNames[i] = t;
+    }
+    try {
+      LocStore.write(_kNames, {for (final e in panelNames.entries) '${e.key}': e.value});
+    } catch (_) {}
   }
 
   void _say(String text, String type) {
