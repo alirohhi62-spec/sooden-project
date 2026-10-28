@@ -337,7 +337,7 @@ class Sd23Controller extends GetxController {
       case 'L':
         return k < 20 ? 'چراغ ${faNum(k + 1)}' : 'کلید ${faNum(k + 1)}';
       case 'M':
-        return 'مستر';
+        return 'Master';
       case 'T':
         return 'سرویسی';
       case 'O':
@@ -359,9 +359,9 @@ class Sd23Controller extends GetxController {
       case 'G':
         return 'دور تند';
       case 'X':
-        return 'EXIT';
+        return 'Exit';
       case 'Z':
-        return 'SLEEP';
+        return 'Sleep';
       case 'E':
         return 'آسانسور';
       case 'S':

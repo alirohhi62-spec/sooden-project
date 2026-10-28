@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
+import '../sim12/sim12_screen.dart' show Sim12Photo;
 import '../panel12/panel12_icons.dart';
 import '../panel12/panel12_screen.dart';
 import 'sd23_controller.dart';
@@ -334,6 +335,13 @@ class Sd23Screen extends StatelessWidget {
             c.labels.length;
             c.iconIds.length;
             if (c.model.value == 'e12') return _frame(_e12Panel());
+            // پنل سیمکارتی به‌عنوان پنل ۲: عکس خودش (بیت n = کلید شبکه‌ی n، مثل پروگرمر)
+            if (c.model.value == 'p12') {
+              int net(int k) => _p12Net.indexOf(k);
+              return Sim12Photo(isOn: (k) => net(k) >= 0 && c.isOn(net(k)), onTap: (k) {
+                if (net(k) >= 0) _pickOnPanel(net(k));
+              });
+            }
             // پنل کوچک (۱ تا ۴ پل، شش پل: فقط کلیدهای ۱ تا ۸): شیشه به شکل خود پنل
             final small = c.layKnown.value && [for (int k = 8; k < Sd23Controller.keyCount; k++) c.kindOf(k)].every((t) => t == '-');
             if (small) return _smallPanel();
@@ -358,6 +366,9 @@ class Sd23Screen extends StatelessWidget {
       ),
     );
   }
+
+  /// شماره‌ی شبکه‌ی کلیدهای پنل سیمکارتی -> کلید روی پنل (پل ۱ تا ۱۲، کلید ۱۳ تا ۱۵، پرده‌ها، آسانسور)
+  static const List<int> _p12Net = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 23, 24, 25, 26, 22];
 
   /// قاب سفید دور کلیدها (لبه‌ی شیشه)
   Widget _frame(Widget child, {double pad = 6}) => Container(
@@ -447,7 +458,7 @@ class Sd23Screen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      PanelIcons.icon(c.iconOf(k), fg, big ? 20 : 14),
+                      PanelIcons.icon(c.iconOf(k), fg, big ? 17 : 14),
                       Text(c.labelOf(k),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

@@ -164,8 +164,8 @@ class Sim12Controller extends GetxController {
   static String defaultName(int k) {
     if (k < 12) return 'پل ${faNum(k + 1)}';
     if (k < 15) return ['بخاری', 'پریز', 'کولر'][k - 12];
-    if (k < 21) return ['سناریو ۱', 'سناریو ۲', 'سناریو ۳', 'سناریو ۴', 'خروج', 'قفل کودک'][k - 15];
-    if (k == 21) return 'مستر';
+    if (k < 21) return ['سناریو ۱', 'سناریو ۲', 'سناریو ۳', 'سناریو ۴', 'Exit', 'قفل کودک'][k - 15];
+    if (k == 21) return 'Master';
     if (k == 22) return 'آسانسور';
     return ['پرده ۱ باز', 'پرده ۱ بسته', 'پرده ۲ باز', 'پرده ۲ بسته'][k - 23];
   }
@@ -967,12 +967,14 @@ class Sim12Controller extends GetxController {
       if (l.length > peerKeyCount) l = l.substring(0, peerKeyCount);
       peerLay.value = l;
       peerOnline.value = p[3] == '1';
+      _syncPeerFace();
     } else if (m.startsWith('P2K#') && m.length >= 10) {
       final v = int.tryParse(m.substring(4, 10), radix: 16);
       if (v == null) return;
       final changed = v ^ peerBits.value;
       peerBits.value = v;
       if (m.length >= 12) peerOnline.value = m[11] == '1';
+      _syncPeerFace();
       for (int k = 0; k < peerKeyCount; k++) {
         if ((changed >> k) & 1 == 1) _peerDone(k);
       }
@@ -1032,7 +1034,21 @@ class Sim12Controller extends GetxController {
   void selectPanel(int i) {
     if (i == 1 && !hasPeer.value) return;
     panel.value = i;
+    _syncPeerFace();
     if (i == 1 && !smsMode) _sendWifi('@M_P2');           // چیدمان و وضعیت تازه‌ی پنل دوم
+  }
+
+  /// تصویر پنل ۲ همان تصویری است که آن پنل به‌تنهایی دارد (صفحه‌ی پنل ۲۳ کلید / ۱ تا ۶ پل)
+  void _syncPeerFace() {
+    if (!peerView) return;
+    final d = Sd23Controller.instance;
+    final n = Sd23Controller.keyCount;
+    d.model.value = peerModel.value;
+    d.lay.value = peerLay.value.padRight(n, '-').substring(0, n);
+    d.bits.value = peerBits.value;
+    d.labels.assignAll(List<String>.filled(n, ''));
+    d.iconIds.assignAll(List<String>.filled(n, ''));
+    d.layKnown.value = true;
   }
 
   /// اسم سربرگ هر پنل (روی همین گوشی)
