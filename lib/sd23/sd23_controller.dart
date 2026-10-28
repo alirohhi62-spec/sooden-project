@@ -231,6 +231,8 @@ class Sd23Controller extends GetxController {
   final RxBool clockOk = true.obs;
   final RxBool clockKnown = false.obs;
   final RxString clockSrc = ''.obs;
+  /// در این اتصال دیده شد که پنل بعد از قطع برق با ساعت تقریبی (B) کار کرده (پیامش تا اتصال بعدی می‌ماند)
+  final RxBool clockWasEstimate = false.obs;
   final RxInt clockDay = 0.obs, clockMin = 0.obs;
 
   // صفحه‌کلید دزدگیر
@@ -506,6 +508,7 @@ class Sd23Controller extends GetxController {
 
   /// پیام $MDL=SD23-...$ رسید: صفحه‌ی همین پنل ساخته می‌شود و همه‌چیز از پنل خوانده می‌شود
   void activate(String mdl) {
+    clockWasEstimate.value = false;
     if (peerView) _showOwn();
     // mdl: SD23-a14-1.0
     final p = mdl.split('-');
@@ -530,7 +533,7 @@ class Sd23Controller extends GetxController {
   void reload() {
     _loadQueue
       ..clear()
-      ..addAll([clockCommand(), '@M_LAY', '@M_CAP', '@K', '@X1Z'])
+      ..addAll(['@M_CLK', clockCommand(), '@M_LAY', '@M_CAP', '@K', '@X1Z'])   // ساعت پنل اول (تقریبی بود؟) بعد ساعت گوشی
       ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
       ..add('@M_VAC');
     _loadTimer?.cancel();
@@ -823,6 +826,7 @@ class Sd23Controller extends GetxController {
         clockDay.value = int.tryParse(p[2]) ?? 0;
         clockMin.value = int.tryParse(p[3]) ?? 0;
         clockSrc.value = p[4];
+        if (p[4] == 'B') clockWasEstimate.value = true;
       } else {
         clockSrc.value = '';
       }

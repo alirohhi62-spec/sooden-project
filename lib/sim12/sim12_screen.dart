@@ -1406,6 +1406,16 @@ class Sim12Screen extends StatelessWidget {
               alignment: AlignmentDirectional.centerEnd,
               child: TextButton(onPressed: () => _editNumber(context), child: const Text('تغییر شماره')),
             ),
+          if (c.panelNumber.value.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              const Expanded(
+                child: Text('تنظیم خودکار ساعت پنل بعد از قطع برق\n(یک پیامک از این گوشی، فقط وقتی پنل ساعت ندارد)',
+                    style: TextStyle(color: _text, fontSize: 12.5, height: 1.6)),
+              ),
+              Switch(value: c.autoTime.value == true, activeThumbColor: _amber, onChanged: (v) => c.setAutoTime(v)),
+            ]),
+          ],
           if (c.savedCode.value.isNotEmpty)
             Align(
               alignment: AlignmentDirectional.centerEnd,
@@ -1415,6 +1425,36 @@ class Sim12Screen extends StatelessWidget {
       ),
       SizedBox(height: 44, child: _bigBtn('تازه کردن وضعیت', _key, _line, c.refresh)),
     ]);
+  }
+
+  /// یک بار: اجازه‌ی تنظیم خودکار ساعت پنل با پیامک
+  void _askAutoTime() {
+    _dlg(Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        backgroundColor: _card,
+        title: const Text('تنظیم خودکار ساعت پنل', style: TextStyle(color: _text, fontSize: 15)),
+        content: const Text(
+            'اگر برق پنل برود و پنل بعد از برگشتن برق ساعت نداشته باشد (مودم نیست و شبکه‌ی اپراتور هم ساعت نداده)، '
+            'پنل یک پیامک «برق پنل وصل شد» به شماره‌ی اول می‌فرستد. اجازه می‌دهی این گوشی خودکار یک پیامک کوتاه جواب بدهد '
+            'تا ساعت پنل و برنامه‌ی مسافرت درست بماند؟\n\nهر بار قطع برق حداکثر یک پیامک؛ بعداً از همین بخش هم عوض می‌شود.',
+            style: TextStyle(color: _text, fontSize: 13, height: 1.7)),
+        actions: [
+          TextButton(
+              onPressed: () {
+                Get.back();
+                c.setAutoTime(false);
+              },
+              child: const Text('نه')),
+          TextButton(
+              onPressed: () {
+                Get.back();
+                c.setAutoTime(true);
+              },
+              child: const Text('بله، اجازه می‌دهم')),
+        ],
+      ),
+    ));
   }
 
   void _editNumber(BuildContext context) {
@@ -1438,6 +1478,7 @@ class Sim12Screen extends StatelessWidget {
               onPressed: () {
                 c.setPanelNumber(t.text.trim());
                 Get.back();
+                if (c.panelNumber.value.isNotEmpty && c.autoTime.value == null) _askAutoTime();
               },
               child: const Text('ذخیره')),
         ],

@@ -28,6 +28,17 @@ class Sim12Sms {
     }
   }
 
+  /// جواب خودکار گوشی به «برق پنل وصل شد» (یک پیامک #TIME) برای این شماره‌ی پنل، روشن / خاموش
+  static Future<bool> autoTime(String number, bool on) async {
+    if (on && !await ensurePermission()) return false;
+    try {
+      final r = await _ch.invokeMethod<bool>('autoTime', {'number': number, 'on': on});
+      return r ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<bool> send(String number, String text) async {
     if (!await ensurePermission()) return false;
     try {
