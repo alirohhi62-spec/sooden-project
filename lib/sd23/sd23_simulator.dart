@@ -201,6 +201,13 @@ class Sd23Simulator {
       if (body.split('#').length == 6) _vac = body;
       return;
     }
+    if (s.startsWith('@M_CUR')) {
+      final u = lay.indexOf('U');
+      if (u < 0) return _out('CUR');
+      _curUpdate();
+      final w = lay.indexOf('W');
+      return _out('CUR#${_two(u + 1)}${(_cPos * 100).round().toString().padLeft(3, '0')}${_isOn(u) ? 1 : w >= 0 && _isOn(w) ? 2 : 0}');
+    }
     if (s.startsWith('@M_VAC')) return _out('V#${_vac ?? '-'}#1#-');
     if (s.startsWith('&K#') && s.length >= 5) {
       final n = int.tryParse(s.substring(3, 5)) ?? 0;
@@ -223,7 +230,24 @@ class Sd23Simulator {
     }
   }
 
+  // پرده‌ی نمایشی (اولین جفت U/W): جای آن مثل پنل از زمان حرکت؛ آخر راه ۱ ثانیه بیشتر
+  double _cPos = 0.5; // ۰ بسته … ۱ باز
+  DateTime? _cAt;
+
+  void _curUpdate() {
+    final u = lay.indexOf('U'), w = lay.indexOf('W');
+    if (u < 0 || w < 0) return;
+    final now = DateTime.now();
+    if (_cAt != null) {
+      final dir = _isOn(u) ? 1 : _isOn(w) ? -1 : 0;
+      final full = (_s1[u] == 0 ? 6 : _s1[u]) * 1000.0;
+      _cPos = (_cPos + dir * now.difference(_cAt!).inMilliseconds / full).clamp(0.0, 1.0);
+    }
+    _cAt = now;
+  }
+
   void _set(int k, bool v) {
+    if (lay[k] == 'U' || lay[k] == 'W') _curUpdate();
     if (v) {
       _on |= 1 << k;
     } else {
@@ -295,8 +319,11 @@ class Sd23Simulator {
           }
           _set(k, true);
           if (curtain) {
+            final x = lay.indexOf('U') < 0 ? k : lay.indexOf('U');
+            final full = (_s1[x] == 0 ? 6 : _s1[x]) * 1000.0;
+            final rest = (t == 'U' ? 1 - _cPos : _cPos) * full;
             _timers[k]?.cancel();
-            _timers[k] = Timer(Duration(seconds: _s1[k] == 0 ? 6 : _s1[k]), () {
+            _timers[k] = Timer(Duration(milliseconds: rest.round() + 1000), () {
               _set(k, false);
               _state();
             });

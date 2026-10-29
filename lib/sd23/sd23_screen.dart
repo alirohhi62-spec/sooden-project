@@ -857,9 +857,24 @@ class Sd23Screen extends StatelessWidget {
                   child: Text(c.labels[p[0]].isNotEmpty ? c.labels[p[0]] : 'پرده',
                       style: const TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w800)),
                 ),
-                Text(c.isOn(p[0]) ? 'در حال باز شدن' : c.isOn(p[1]) ? 'در حال بسته شدن' : 'ایستاده',
+                Text(
+                    (c.isOn(p[0]) ? 'در حال باز شدن' : c.isOn(p[1]) ? 'در حال بسته شدن' : 'ایستاده') +
+                        ((c.curPct[p[0]] ?? -1) >= 0 ? ' - ${Sd23Controller.faNum(c.curPct[p[0]]!)}٪ باز' : ''),
                     style: TextStyle(color: c.isOn(p[0]) || c.isOn(p[1]) ? _red : _muted, fontSize: 11.5)),
               ]),
+              if ((c.curPct[p[0]] ?? -1) >= 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: c.curPct[p[0]]! / 100,
+                      minHeight: 6,
+                      color: _curt,
+                      backgroundColor: _curt.withValues(alpha: .15),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 10),
               SizedBox(
                 height: 76,
