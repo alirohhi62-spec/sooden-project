@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import 'panel12_controller.dart';
 import 'panel12_icons.dart';
+import '../net/net_screen.dart';
 import '../sd23/sd23_screen.dart';
 import '../sim12/sim12_screen.dart';
 
@@ -89,16 +90,19 @@ class Panel12TabHost extends StatelessWidget {
       // پنل ۲۳ کلید: صفحه‌ی مخصوص همان پنل
       // پنل سیمکارتی: صفحه‌ی خودش (بدون اینترنت هم با پیامک کار می‌کند، پس کم‌رنگ نمی‌شود)
       final sim = c.isSim12.value || (!known && c.lastSim12.value);
-      final sd = !sim && (c.isSd23.value || (!known && c.lastSd23.value));
-      final showPanel = !sim && !sd && (c.isRf12.value || (!known && c.lastRf12.value));
-      final showOld = known && !c.isRf12.value && !c.isSd23.value && !c.isSim12.value;
+      // شبکه‌ی CPU: فهرست خانه تا وقتی پنلی باز نشده
+      final net = !sim && (known ? c.isNet.value && !c.isSd23.value : c.lastNet.value);
+      final sd = !sim && !net && (c.isSd23.value || (!known && c.lastSd23.value));
+      final showPanel = !sim && !sd && !net && (c.isRf12.value || (!known && c.lastRf12.value));
+      final showOld = known && !c.isRf12.value && !c.isSd23.value && !c.isSim12.value && !c.isNet.value;
       return Stack(fit: StackFit.expand, children: [
         Offstage(offstage: !showOld, child: home),
         if (sim) const Sim12Screen(),
+        if (net) const NetScreen(),
         if (sd) const Sd23Screen(),
         if (showPanel) const Panel12Screen(),
-        if (showPanel || sd) const Panel12Overlay(),
-        if (!showPanel && !showOld && !sd && !sim) const ColoredBox(color: _bg),
+        if (showPanel || sd || net) const Panel12Overlay(),
+        if (!showPanel && !showOld && !sd && !sim && !net) const ColoredBox(color: _bg),
       ]);
     });
   }

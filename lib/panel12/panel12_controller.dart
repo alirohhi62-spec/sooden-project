@@ -9,6 +9,7 @@ import '../core/eventbus/event_bus_model.dart';
 import '../core/utils/globals.dart';
 import '../data/data_sources/remote_data_sources/socket/socket.dart';
 import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
+import '../net/net_controller.dart';
 import '../sd23/sd23_controller.dart';
 import '../sim12/sim12_controller.dart';
 import 'panel12_icons.dart';
@@ -141,6 +142,10 @@ class Panel12Controller extends GetxController {
   /// پنل ۲۳ کلید (دزدگیردار / ۲۰ پل): صفحه‌اش را Sd23Controller می‌سازد
   final RxBool isSd23 = false.obs;
 
+  /// ماژول وای‌فای شبکه‌ی CPU (فهرست پنل‌های خانه؛ با باز کردن یک پنل isSd23 هم روشن می‌شود)
+  final RxBool isNet = false.obs;
+  final RxBool lastNet = false.obs;
+
   /// آخرین بار به پنل ۲۳ کلید وصل بودیم؟
   final RxBool lastSd23 = false.obs;
 
@@ -225,11 +230,13 @@ class Panel12Controller extends GetxController {
   static const String _kLastRf12 = 'panel12_last_rf12';
   static const String _kLastSd23 = 'panel12_last_sd23';
   static const String _kLastSim12 = 'panel12_last_sim12';
+  static const String _kLastNet = 'panel12_last_net';
 
   void _loadLast() {
     lastRf12.value = LocStore.read<bool>(_kLastRf12) ?? false;
     lastSd23.value = LocStore.read<bool>(_kLastSd23) ?? false;
     lastSim12.value = LocStore.read<bool>(_kLastSim12) ?? false;
+    lastNet.value = LocStore.read<bool>(_kLastNet) ?? false;
   }
 
   @override
@@ -269,8 +276,9 @@ class Panel12Controller extends GetxController {
     if (isRf12.value) reloadPanel();
     _modelTimer?.cancel();
     _modelTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (!isRf12.value && !isSd23.value && !isSim12.value) {
+      if (!isRf12.value && !isSd23.value && !isSim12.value && !isNet.value) {
         modelKnown.value = true;
+        _setNet(false);
         _setLastRf12(false);
         _setLastSd23(false);
         _setLastSim12(false);
@@ -340,6 +348,15 @@ class Panel12Controller extends GetxController {
     } catch (_) {}
   }
 
+  void _setNet(bool v) {
+    if (isNet.value && !v) NetController.instance.deactivate();
+    isNet.value = v;
+    lastNet.value = v;
+    try {
+      LocStore.write(_kLastNet, v);
+    } catch (_) {}
+  }
+
   void _setLastSd23(bool v) {
     lastSd23.value = v;
     try {
@@ -380,6 +397,7 @@ class Panel12Controller extends GetxController {
     isRf12.value = false;
     isSd23.value = false;
     isSim12.value = false;
+    isNet.value = false;
     modelKnown.value = false;
     lights.assignAll(List<bool>.filled(lightCount, false));
     curtainPos.value = 0;
@@ -602,7 +620,23 @@ class Panel12Controller extends GetxController {
   }
 
   void _handleDollar(String m) {
+    if (m.startsWith('MDL=SDNET')) {
+      // ماژول وای‌فای شبکه‌ی CPU: فهرست پنل‌های خانه
+      isRf12.value = false;
+      isSd23.value = false;
+      isSim12.value = false;
+      Sim12Controller.instance.deactivate();
+      modelKnown.value = true;
+      _setLastRf12(false);
+      _setLastSd23(false);
+      _setLastSim12(false);
+      _setNet(true);
+      NetController.instance.activate(m.substring(4));
+      return;
+    }
+    if (isNet.value && NetController.instance.handle(m)) return;
     if (m.startsWith('MDL=SIM12')) {
+      _setNet(false);
       // پنل ۱۲ پل سیمکارتی: صفحه‌ی مخصوص (کلیدها، دزدگیر، پرده، سناریو، سیمکارت)
       isRf12.value = false;
       isSd23.value = false;
@@ -619,6 +653,8 @@ class Panel12Controller extends GetxController {
       return;
     }
     if (m.startsWith('MDL=SD23')) {
+      // بی‌درخواست @P# یعنی پنل تنها، نه ماژول شبکه‌ی CPU
+      if (isNet.value && NetController.instance.viewing.value == 0) _setNet(false);
       // پنل ۲۳ کلید: صفحه‌ی مخصوص همین پنل (چیدمان، دزدگیر و متن کلیدها را خود پنل می‌فرستد)
       isRf12.value = false;
       isSd23.value = true;
@@ -627,7 +663,7 @@ class Panel12Controller extends GetxController {
       Sim12Controller.instance.deactivate();
       modelKnown.value = true;
       _setLastRf12(false);
-      _setLastSd23(true);
+      _setLastSd23(!isNet.value);     // در شبکه‌ی CPU دفعه‌ی بعد فهرست خانه اول می‌آید
       Sd23Controller.instance.activate(m.substring(4));
       return;
     }
@@ -636,6 +672,7 @@ class Panel12Controller extends GetxController {
       return;
     }
     if (m.startsWith('MDL=')) {
+      _setNet(false);
       isSd23.value = false;
       _setLastSd23(false);
       isSim12.value = false;

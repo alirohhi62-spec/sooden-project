@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 
 import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import '../sim12/sim12_screen.dart' show Sim12Photo;
+import '../net/net_controller.dart';
+import '../panel12/panel12_controller.dart';
 import '../panel12/panel12_icons.dart';
 import '../panel12/panel12_screen.dart';
 import 'sd23_controller.dart';
@@ -185,6 +187,13 @@ class Sd23Screen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
       child: Row(
         children: [
+          // شبکه‌ی CPU: برگشت به فهرست پنل‌های خانه
+          Obx(() => Panel12Controller.instance.isNet.value && !c.demo.value
+              ? Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 10),
+                  child: _chip('›  خانه', _cool, NetController.instance.back),
+                )
+              : const SizedBox.shrink()),
           Expanded(
             child: GestureDetector(
               onLongPress: () => askInstallerPin(() => c.setInstaller(true)),
