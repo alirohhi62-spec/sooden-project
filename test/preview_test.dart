@@ -1,4 +1,5 @@
 // پیش‌نمایش اصلاحات شکل پنل‌ها (۱۲ اقتصادی، شش پل، ۱ / ۲ / ۳ / ۴ پل به‌عنوان پنل ۲، نوشته‌ی زیر عکس).
+// پنل‌های ۱ تا ۴ پل و شش پل: روی هر پل فقط شماره‌اش، سناریوها نوشته.
 // flutter test --update-goldens test/preview_test.dart  ->  test/goldens/preview_*.png
 
 import 'dart:convert';

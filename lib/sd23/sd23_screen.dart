@@ -400,7 +400,7 @@ class Sd23Screen extends StatelessWidget {
     for (int k = 0; k < 8; k++) {
       if (c.kindOf(k) != '-') n = k + 1;
     }
-    Widget key(int k) => Expanded(child: SizedBox(height: 44, child: FittedBox(child: SizedBox(width: 64, height: 32, child: _miniKey(k)))));
+    Widget key(int k) => Expanded(child: SizedBox(height: 44, child: FittedBox(child: SizedBox(width: 64, height: 32, child: _miniKey(k, number: true)))));
     Widget face;
     double w, ratio;
     if (n <= 2) {
@@ -429,7 +429,8 @@ class Sd23Screen extends StatelessWidget {
 
   /// یک کلید کوچک: آیکون + نوشته (کلیدهای صفحه‌کلید فقط نوشته)
   /// big: ۱۲ اقتصادی (آیکون و نوشته درشت‌تر نسبت به جای کلید)
-  Widget _miniKey(int k, {bool big = false}) {
+  /// number: پنل‌های ۱ تا ۴ پل و شش پل: هر پل فقط شماره‌اش (مثل رقم‌های دزدگیردار)، سناریوها همان نوشته
+  Widget _miniKey(int k, {bool big = false, bool number = false}) {
     final t = c.kindOf(k);
     final lit = _litOf(k);
     final base = _groupColor(c.groupOf(k));
@@ -439,6 +440,7 @@ class Sd23Screen extends StatelessWidget {
     final scnText = c.model.value == 'e12' && c.groupOf(k) == Sd23Controller.gScn && t != 'E';
     final textOnly = t == 'n' || t == 'c' || Sd23Controller.isDigitKind(t) || scnText;
     final mark = c.highlight.value == k;
+    final num = number && t != '-' && c.groupOf(k) != Sd23Controller.gScn;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _pickOnPanel(k),
@@ -451,6 +453,11 @@ class Sd23Screen extends StatelessWidget {
         ),
         child: t == '-'
             ? const SizedBox.shrink()
+            : num
+                ? Center(
+                    child: Text('${k + 1}',
+                        style: TextStyle(color: fg, fontSize: 15, fontWeight: FontWeight.w700, height: 1.0, shadows: glow)),
+                  )
             : textOnly
                 ? Center(
                     child: FittedBox(
