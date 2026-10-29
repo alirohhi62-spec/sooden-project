@@ -184,6 +184,8 @@ void main() {
     await _setup(tester);
     final c = Panel12Controller.instance;
     final s = Sd23Controller.instance;
+    await tester.pumpWidget(_app(Panel12TabHost(home: Container(color: Colors.white))));
+    await tester.pump();
     c.onRaw(utf8.encode(r'$MDL=SD23-p6-1.0$'));
     c.onRaw(utf8.encode(r'$LAY#UWLLUWXM---------------$$CAP#A0R0W1S0C1V0$$K#000000$'));
     await tester.pump(const Duration(milliseconds: 300));
