@@ -1,4 +1,4 @@
-// پیش‌نمایش اصلاحات شکل پنل‌ها (۱۲ اقتصادی، شش پل، ۱ / ۲ / ۳ / ۴ پل به‌عنوان پنل ۲، نوشته‌ی زیر عکس).
+// پیش‌نمایش جابه‌جایی بین پنل‌های یک خانه (زبانه‌ها / فهرست کشویی). قبلاً: پیش‌نمایش اصلاحات شکل پنل‌ها (۱۲ اقتصادی، شش پل، ۱ / ۲ / ۳ / ۴ پل به‌عنوان پنل ۲، نوشته‌ی زیر عکس).
 // flutter test --update-goldens test/preview_test.dart  ->  test/goldens/preview_*.png
 
 import 'dart:convert';
@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:bms/core/utils/globals.dart';
 import 'package:bms/panel12/panel12_controller.dart';
 import 'package:bms/panel12/panel12_screen.dart';
+import 'package:bms/home/panel_switcher.dart';
 import 'package:bms/sim12/sim12_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -46,48 +47,77 @@ Future<void> _setup(WidgetTester tester) async {
 }
 
 
-Future<void> _shot(WidgetTester tester, String name, List<String> msgs, {bool peer = false, bool sim = false}) async {
+
+const _a14 = [r'$MDL=SD23-a14-1.0$', r'$LAY#LLLLLLLLLLLLnc1234UWXEZ$$CAP#A1R1W1S1P1$$K#000005$$AL#0$'];
+const _e12 = [r'$MDL=SD23-e12-1.0$', r'$LAY#LLLLLLLLLLLL--------MTX$$CAP#A0R1W1S1$$K#000011$'];
+const _home = [
+  HomePanel(1, 'سالن', 'دزدگیردار ۱۴ پل'),
+  HomePanel(2, 'طبقه بالا', '۱۲ اقتصادی'),
+  HomePanel(3, 'حیاط', 'شش پل', online: false),
+];
+
+/// the panel page with the switcher above it; picking a panel feeds that panel's answers (like a real switch)
+class _Host extends StatefulWidget {
+  final SwitcherStyle style;
+  final List<HomePanel> panels;
+  final String? note;
+  const _Host(this.style, this.panels, {this.note});
+  @override
+  State<_Host> createState() => _HostState();
+}
+
+class _HostState extends State<_Host> {
+  int cur = 1;
+  @override
+  Widget build(BuildContext context) => Container(
+        color: const Color(0xFF0B0C10),
+        child: SafeArea(
+          bottom: false,
+          child: Column(children: [
+            PanelSwitcher(
+                panels: widget.panels,
+                current: cur,
+                style: widget.style,
+                note: widget.note,
+                onPick: (p) {
+                  setState(() => cur = p.id);
+                  for (final m in p.id == 2 ? _e12 : _a14) {
+                    Panel12Controller.instance.onRaw(utf8.encode(m));
+                  }
+                }),
+            Expanded(child: Panel12TabHost(home: Container(color: Colors.white))),
+          ]),
+        ),
+      );
+}
+
+Future<void> _sw(WidgetTester tester, String name, SwitcherStyle st, {List<HomePanel> panels = _home, String? note, Future<void> Function()? act}) async {
   await _setup(tester);
-  final c = Panel12Controller.instance;
-  await tester.pumpWidget(_app(Panel12TabHost(home: Container(color: Colors.white))));
-  for (final m in msgs) {
-    c.onRaw(utf8.encode(m));
-    if (sim && m.startsWith(r'$MDL=SIM12')) {
-      Sim12Controller.instance.demo.value = true; // وای‌فای وصل حساب شود
-      Sim12Controller.instance.updateLink();
-    }
+  await tester.pumpWidget(_app(_Host(st, panels, note: note)));
+  for (final m in _a14) {
+    Panel12Controller.instance.onRaw(utf8.encode(m));
   }
   await tester.pump(const Duration(milliseconds: 400));
   await tester.pump(const Duration(milliseconds: 600));
-  await tester.runAsync(() async {
-    await precacheImage(const AssetImage('assets/images/sim12_panel.jpg'), tester.element(find.byType(Scaffold).first));
-  });
-  if (peer) {
-    await tester.tap(find.text('پنل ۲'));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 600));
-  }
+  if (act != null) await act();
   await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/preview_$name.png'));
-  if (peer) await tester.tap(find.text(sim ? 'پنل ۱ (سیمکارتی)' : 'پنل ۱'));
-  Sim12Controller.instance.demo.value = false;
   await tester.pump(const Duration(seconds: 30));
 }
 
-const _own = [r'$MDL=SD23-a14-1.0$', r'$LAY#LLLLLLLLLLLLnc1234UWXEZ$$CAP#A1R1W1S1P1$$K#000005$$AL#0$'];
-
 void main() {
-  testWidgets('e12', (t) => _shot(t, '1_e12', [r'$MDL=SD23-e12-1.0$', r'$LAY#LLLLLLLLLLLL--------MTX$$CAP#A0R1W1S1$$K#000005$']));
-  testWidgets('e12 with scenarios on 9..12', (t) => _shot(t, '2_e12scn', [r'$MDL=SD23-e12-1.0$', r'$LAY#LLLLLLLLUWSZ--------MTX$$CAP#A0R1W1S1$$K#000005$']));
-  testWidgets('6-pole', (t) => _shot(t, '3_p6', [r'$MDL=SD23-p6-1.0$', r'$LAY#LLLLLLXM---------------$$CAP#A0R1W1C1V0$$K#000005$']));
-  testWidgets('1-pole as panel 2', (t) => _shot(t, '4_p1', [..._own, r'$P2#p1#L----------------------#1$$P2K#000001#1$'], peer: true));
-  testWidgets('2-pole as panel 2', (t) => _shot(t, '5_p2', [..._own, r'$P2#p2#LL---------------------#1$$P2K#000001#1$'], peer: true));
-  testWidgets('3-pole + master as panel 2', (t) => _shot(t, '6_p3m', [..._own, r'$P2#p3m#LLLM-------------------#1$$P2K#000001#1$'], peer: true));
-  testWidgets('4-pole as panel 2', (t) => _shot(t, '7_p4', [..._own, r'$P2#p4#LLLL-------------------#1$$P2K#000005#1$'], peer: true));
-  testWidgets('14-pole alarm (tab names)', (t) => _shot(t, '8_a14', _own));
-  const sim = [r'$MDL=SIM12-1.0$', r'$LAY#LLLLLLLLLLLLLLLSSSSXHMEUWUW$$K#0000005$$AL#0#0#0$$SIM#1#4#2#-$$CAP#A0R1W1S1P1$'];
-  testWidgets('SIM panel + 4-pole: panel 2', (t) => _shot(t, '9_sim_p4', [...sim, r'$P2#p4#LLLL-------------------#1$$P2K#000005#1$'], peer: true, sim: true));
-  testWidgets('SIM panel + 6-pole: panel 2', (t) => _shot(t, '10_sim_p6', [...sim, r'$P2#p6#LLLLLLXM---------------#1$$P2K#000005#1$'], peer: true, sim: true));
-  testWidgets('6-pole as panel 2 of a 14-pole alarm', (t) => _shot(t, '11_a14_p6', [..._own, r'$P2#p6#LLLLLLXM---------------#1$$P2K#000005#1$'], peer: true));
-  testWidgets('SIM panel as panel 2 of a 12-pole alarm', (t) => _shot(t, '12_a12_sim',
-      [r'$MDL=SD23-a12-1.0$', r'$LAY#LLLLLLLLLLLLnc123456XEZ$$CAP#A1R1W1S1P1$$K#000005$$AL#0$', r'$P2#p12#LLLLLLLLLLLLLLLUWUWE---#1$$P2K#000005#1$'], peer: true));
+  testWidgets('tabs', (t) => _sw(t, 'sw1_tabs', SwitcherStyle.tabs));
+  testWidgets('tabs: switched to the 12 economic', (t) => _sw(t, 'sw2_tabs_switched', SwitcherStyle.tabs, act: () async {
+        await t.tap(find.byKey(const ValueKey('switch-tab-2')));
+        await t.pump(const Duration(milliseconds: 400));
+        await t.pump(const Duration(milliseconds: 600));
+      }));
+  testWidgets('tabs: on the panel Wi-Fi', (t) => _sw(t, 'sw3_tabs_panelwifi', SwitcherStyle.tabs,
+      panels: const [HomePanel(1, 'سالن', 'دزدگیردار ۱۴ پل'), HomePanel(2, 'طبقه بالا', '۱۲ اقتصادی', reachable: false), HomePanel(3, 'حیاط', 'شش پل', reachable: false)],
+      note: 'گوشی به وای‌فای خود «سالن» وصل است؛ بقیه‌ی پنل‌ها فقط از راه مودم خانه'));
+  testWidgets('dropdown', (t) => _sw(t, 'sw4_drop', SwitcherStyle.dropdown));
+  testWidgets('dropdown open', (t) => _sw(t, 'sw5_drop_open', SwitcherStyle.dropdown, act: () async {
+        await t.tap(find.byKey(const ValueKey('switch-title')));
+        await t.pump(const Duration(milliseconds: 500));
+        await t.pump(const Duration(milliseconds: 500));
+      }));
 }
