@@ -2,6 +2,7 @@
 // و داده‌های قدیمیِ پیش از چند مکان که فقط یک بار به مکان اول می‌رسند.
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:bms/core/utils/globals.dart';
 import 'package:bms/core/utils/loc_store.dart';
@@ -23,7 +24,8 @@ Future<void> _setup(WidgetTester tester) async {
   addTearDown(tester.view.reset);
   final m = tester.binding.defaultBinaryMessenger;
   m.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
-  m.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (call) async => '/tmp');
+  final dir = Directory('/tmp/sooden_homeswitch_test')..createSync(recursive: true);   /* (its own file: tests run side by side) */
+  m.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (call) async => dir.path);
   await tester.runAsync(() => GetStorage.init());
 }
 
