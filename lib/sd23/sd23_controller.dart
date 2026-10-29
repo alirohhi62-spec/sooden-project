@@ -698,6 +698,9 @@ class Sd23Controller extends GetxController {
     }
   }
 
+  /// to another panel of the home: nothing of this one stays
+  void clearForSwitch() => _reset();
+
   void _reset() {
     panel.value = 0;
     hasPeer.value = false;

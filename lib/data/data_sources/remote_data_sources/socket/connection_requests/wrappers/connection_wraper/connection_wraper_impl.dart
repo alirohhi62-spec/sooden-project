@@ -1,3 +1,4 @@
+import 'package:bms/home/home_switch.dart';
 import 'package:bms/domain/store_ip_config/store_ip_config_usecase.dart';
 import 'package:bms/domain/store_ip_config/store_ip_config_usecase_impl.dart';
 import 'package:get/get.dart';
@@ -72,7 +73,12 @@ class ConnectionWrapperImpl extends ConnectionWrapper {
   static Location? matchLocation(List<Location> all, String wifi, String bssid) {
     if (wifi.isEmpty) return null;
     for (final l in all) {
-      if (l.panelWifiName == wifi || l.modemName == wifi) return l;
+      if (l.panelWifiName == wifi) return l;                 // the panel's own Wi-Fi: that panel
+    }
+    final home = all.where((l) => l.modemName == wifi).toList();   // the home modem: the panel used last on it
+    if (home.isNotEmpty) {
+      final last = HomeSwitch.lastFor(wifi);
+      return home.firstWhere((l) => l.id == last, orElse: () => home.first);
     }
     String tail(String? m) {
       final h = (m ?? '').toLowerCase().replaceAll(RegExp('[^0-9a-f]'), '');
@@ -99,6 +105,7 @@ class ConnectionWrapperImpl extends ConnectionWrapper {
     LocStore.wifiNow = wifi;
     LocStore.autoPicked = false;
     if (all.isNotEmpty) LocStore.firstId = all.map((l) => l.id ?? 0).reduce((a, b) => a < b ? a : b);
+    LocStore.moveLegacy();                                     // data of the time before locations: to the first one, once
     if (wifi.isNotEmpty) {
       String b = '';
       try {
@@ -142,6 +149,7 @@ class ConnectionWrapperImpl extends ConnectionWrapper {
     }
     _mCurrLocations = pick;
     LocStore.set(pick?.id, pick?.name ?? '');
+    HomeSwitch.instance.refreshList();
     _logger('_getUserSelectedLocation', 'wifi: $wifi, location: ${pick?.name} (auto ${LocStore.autoPicked})');
   }
 

@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import 'panel12_controller.dart';
 import 'panel12_icons.dart';
+import '../home/home_switch.dart';
 import '../net/net_screen.dart';
 import '../sd23/sd23_screen.dart';
 import '../sim12/sim12_screen.dart';
@@ -95,7 +96,9 @@ class Panel12TabHost extends StatelessWidget {
       final sd = !sim && !net && (c.isSd23.value || (!known && c.lastSd23.value));
       final showPanel = !sim && !sd && !net && (c.isRf12.value || (!known && c.lastRf12.value));
       final showOld = known && !c.isRf12.value && !c.isSd23.value && !c.isSim12.value && !c.isNet.value;
-      return Stack(fit: StackFit.expand, children: [
+      // پنل‌های دیگر همین خانه (همان مودم): نوار بالای صفحه
+      final bar = !c.demo.value && HomeSwitch.instance.visible;
+      final stack = Stack(fit: StackFit.expand, children: [
         Offstage(offstage: !showOld, child: home),
         if (sim) const Sim12Screen(),
         if (net) const NetScreen(),
@@ -104,6 +107,14 @@ class Panel12TabHost extends StatelessWidget {
         if (showPanel || sd || net) const Panel12Overlay(),
         if (!showPanel && !showOld && !sd && !sim && !net) const ColoredBox(color: _bg),
       ]);
+      if (!bar) return stack;
+      return ColoredBox(
+        color: _bg,
+        child: Column(children: [
+          const HomeSwitchBar(),
+          Expanded(child: MediaQuery.removePadding(context: context, removeTop: true, child: stack)),
+        ]),
+      );
     });
   }
 }

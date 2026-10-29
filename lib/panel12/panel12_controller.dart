@@ -619,7 +619,33 @@ class Panel12Controller extends GetxController {
     }
   }
 
+  /// به پنل دیگر همین خانه می‌رویم (HomeSwitch): صفحه‌ی پنل قبلی پاک، تا پنل تازه مدلش را بگوید
+  void prepareSwitch() {
+    _resetState();
+    _modelTimer?.cancel();
+    Sd23Controller.instance.clearForSwitch();
+    Sim12Controller.instance.deactivate();
+    if (isNet.value) NetController.instance.deactivate();
+  }
+
+  /// اسم مدل این پنل برای فهرست پنل‌های خانه
+  void _saveTitle(String m) {
+    String t = '';
+    if (m.startsWith('MDL=SDNET')) {
+      t = 'شبکه CPU';
+    } else if (m.startsWith('MDL=SIM12')) {
+      t = 'دزدگیر سیمکارتی';
+    } else if (m.startsWith('MDL=SD23')) {
+      final p = m.substring(4).split('-');
+      t = Sd23Controller.modelNames[p.length > 1 ? p[1] : ''] ?? 'پنل ۲۳ کلید';
+    } else if (m.startsWith('MDL=RF12')) {
+      t = 'پنل ۱۲ پل';
+    }
+    if (t.isNotEmpty && LocStore.readFor<String>(LocStore.id, 'home_title') != t) LocStore.writeFor(LocStore.id, 'home_title', t);
+  }
+
   void _handleDollar(String m) {
+    if (m.startsWith('MDL=') && !demo.value) _saveTitle(m);
     if (m.startsWith('MDL=SDNET')) {
       // ماژول وای‌فای شبکه‌ی CPU: فهرست پنل‌های خانه
       isRf12.value = false;

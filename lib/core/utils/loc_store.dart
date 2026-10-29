@@ -40,11 +40,30 @@ class LocStore {
       final b = GetStorage();
       final v = b.read(key(base));
       if (v != null) return v as T?;
+      if (b.read(_moved) == true) return null;                 // the old data already belongs to the first location
       if (id != null && firstId != null && id != firstId) return null;
       return b.read(base) as T?;
     } catch (_) {
       return null;
     }
+  }
+
+  static const String _moved = 'loc_legacy_moved';
+
+  /// داده‌های قدیمی گوشی (پیش از چند مکان، بدون شماره‌ی مکان) یک بار مال اولین مکان می‌شوند؛
+  /// بعد از آن هیچ مکانی چیزی از آن‌ها به ارث نمی‌برد (مثلاً «آخرین پنل سیمکارتی بود»)
+  static void moveLegacy() {
+    try {
+      final b = GetStorage();
+      if (b.read(_moved) == true || firstId == null) return;
+      for (final k in List<String>.from(b.getKeys<Iterable<String>>())) {
+        if (k.startsWith('loc') && RegExp(r'^loc\d+_').hasMatch(k)) continue;
+        if (k.startsWith('home_') || k == _moved) continue;
+        final dst = 'loc${firstId}_$k';
+        if (b.read(dst) == null) b.write(dst, b.read(k));
+      }
+      b.write(_moved, true);
+    } catch (_) {}
   }
 
   /// داده‌ی یک مکان مشخص (نه لزوماً مکان فعلی)
