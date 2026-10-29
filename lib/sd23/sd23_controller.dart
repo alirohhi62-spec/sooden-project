@@ -211,7 +211,8 @@ class Sd23Controller extends GetxController {
 
   /// پرده‌ها: درصد باز بودن از خود پنل (@M_CUR، فریمور با پرده‌ی شمارشی)، کلید = کلید «باز»؛ ۱- = پنل هنوز نمی‌داند
   final RxMap<int, int> curPct = <int, int>{}.obs;
-  Timer? _curPoll;
+  Timer? _curPoll, _curEnd;
+  int _curPolls = 0;
 
   /// زمان‌های دزدگیر و خاموش شدن پنل: فعال شدن، مهلت ورود، آژیر، خاموش شدن پنل (ثانیه)
   final RxList<int> alTimes = <int>[].obs;
@@ -581,11 +582,21 @@ class Sd23Controller extends GetxController {
     }
     if (changed) _queue('@M_CUR');
     if (moving && _curPoll == null) {
-      _curPoll = Timer.periodic(const Duration(seconds: 1), (_) => _queue('@M_CUR'));
+      _curPolls = 0;
+      _curPoll = Timer.periodic(const Duration(seconds: 1), (t) {
+        // پنل دیگری وصل شد یا خیلی طول کشید (پرده‌ی ۲۵۵ ثانیه‌ای + ۱): دیگر نپرس
+        if (!Panel12Controller.instance.isSd23.value || ++_curPolls > 300) {
+          t.cancel();
+          _curPoll = null;
+          return;
+        }
+        _queue('@M_CUR');
+      });
     } else if (!moving && _curPoll != null) {
       _curPoll!.cancel();
       _curPoll = null;
-      Timer(const Duration(milliseconds: 1200), () => _queue('@M_CUR'));
+      _curEnd?.cancel();
+      _curEnd = Timer(const Duration(milliseconds: 1200), () => _queue('@M_CUR'));
     }
   }
 
@@ -729,6 +740,8 @@ class Sd23Controller extends GetxController {
     curPct.clear();
     _curPoll?.cancel();
     _curPoll = null;
+    _curEnd?.cancel();
+    _curEnd = null;
     alTimes.clear();
     phone.assignAll(List<Sd23PhoneScn?>.filled(phoneCount, null));
     phoneLoaded.value = false;

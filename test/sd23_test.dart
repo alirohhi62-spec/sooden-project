@@ -201,6 +201,7 @@ void main() {
     expect(s.curPct[4], 15);
     expect(find.textContaining('ایستاده - ۰٪ باز'), findsOneWidget);
     expect(find.textContaining('در حال بسته شدن - ۱۵٪ باز'), findsOneWidget);
+    c.onRaw(utf8.encode(r'$K#000000$$CUR#010000#050000$'));       // ایستاد: پرسیدن هر ثانیه تمام
     await tester.pump(const Duration(seconds: 30));
   });
 
