@@ -116,10 +116,10 @@ class PanelSwitcher extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Text(c?.name ?? '', style: const TextStyle(color: _text, fontSize: 14.5, fontWeight: FontWeight.w700)),
-              Text('${c?.model ?? ''}  ·  ${panels.length} پنل در این خانه', style: const TextStyle(color: _muted, fontSize: 11)),
+              Text('${c?.model ?? ''}، ${panels.length} پنل در این خانه', style: const TextStyle(color: _muted, fontSize: 11)),
             ]),
           ),
-          const Icon(Icons.keyboard_arrow_down_rounded, color: _muted),
+          const CustomPaint(size: Size(14, 9), painter: _Chevron()),
         ]),
       ),
     );
@@ -195,4 +195,21 @@ class PanelSwitcher extends StatelessWidget {
       backgroundColor: Colors.transparent,
     );
   }
+}
+
+/// the arrow of the list (drawn: no icon font needed)
+class _Chevron extends CustomPainter {
+  const _Chevron();
+  @override
+  void paint(Canvas c, Size s) {
+    final p = Paint()
+      ..color = _muted
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    c.drawPath(Path()..moveTo(1, 1)..lineTo(s.width / 2, s.height - 1)..lineTo(s.width - 1, 1), p);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
 }
