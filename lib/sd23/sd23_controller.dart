@@ -209,6 +209,10 @@ class Sd23Controller extends GetxController {
   /// تنظیمات کلیدها (فقط کلیدهایی که پرسیده شده‌اند)
   final RxMap<int, Sd23Cf> cf = <int, Sd23Cf>{}.obs;
 
+  /// پرده‌ها: درصد باز بودن از خود پنل (@M_CUR، فریمور با پرده‌ی شمارشی)، کلید = کلید «باز»؛ ۱- = پنل هنوز نمی‌داند
+  final RxMap<int, int> curPct = <int, int>{}.obs;
+  Timer? _curPoll;
+
   /// زمان‌های دزدگیر و خاموش شدن پنل: فعال شدن، مهلت ورود، آژیر، خاموش شدن پنل (ثانیه)
   final RxList<int> alTimes = <int>[].obs;
 
@@ -560,7 +564,41 @@ class Sd23Controller extends GetxController {
       }
     }
     if (installer.value) _queue('@M_CF#AL');
+    if (curtainPairs.isNotEmpty) _queue('@M_CUR');
     if (hasSettings.value && !phoneLoaded.value) loadPhone();
+  }
+
+  /// پرده در حال حرکت: هر ثانیه درصدش از پنل پرسیده می‌شود؛ ایستاد: یک بار دیگر (جای نهایی)
+  void _curtainWatch(int was, int now) {
+    final pairs = curtainPairs;
+    if (pairs.isEmpty) return;
+    bool changed = false, moving = false;
+    for (final p in pairs) {
+      for (final k in p) {
+        if (((was ^ now) >> k) & 1 == 1) changed = true;
+        if ((now >> k) & 1 == 1) moving = true;
+      }
+    }
+    if (changed) _queue('@M_CUR');
+    if (moving && _curPoll == null) {
+      _curPoll = Timer.periodic(const Duration(seconds: 1), (_) => _queue('@M_CUR'));
+    } else if (!moving && _curPoll != null) {
+      _curPoll!.cancel();
+      _curPoll = null;
+      Timer(const Duration(milliseconds: 1200), () => _queue('@M_CUR'));
+    }
+  }
+
+  /// CUR#kkpppm#...: کلید باز (۱ تا ۲۳)، درصد باز (--- نامعلوم)، ۰ ایستاده / ۱ باز می‌شود / ۲ بسته می‌شود
+  void _onCur(String m) {
+    final next = <int, int>{};
+    for (final g in m.split('#').skip(1)) {
+      if (g.length < 6) continue;
+      final k = int.tryParse(g.substring(0, 2));
+      if (k == null || k < 1 || k > keyCount) continue;
+      next[k - 1] = int.tryParse(g.substring(2, 5)) ?? -1;
+    }
+    curPct.assignAll(next);
   }
 
   void _queue(String cmd) {
@@ -688,6 +726,9 @@ class Sd23Controller extends GetxController {
     labels.assignAll(List<String>.filled(keyCount, ''));
     iconIds.assignAll(List<String>.filled(keyCount, ''));
     cf.clear();
+    curPct.clear();
+    _curPoll?.cancel();
+    _curPoll = null;
     alTimes.clear();
     phone.assignAll(List<Sd23PhoneScn?>.filled(phoneCount, null));
     phoneLoaded.value = false;
@@ -736,6 +777,7 @@ class Sd23Controller extends GetxController {
       if (v != null) {
         final was = bits.value;
         bits.value = v;
+        _curtainWatch(was, v);
         // زمان باقی‌مانده‌ی سناریوهای در حال اجرا از پنل
         for (int k = 0; k < keyCount; k++) {
           final changed = ((was ^ v) >> k) & 1;
@@ -821,6 +863,8 @@ class Sd23Controller extends GetxController {
       }
       pending.assignAll(p);
       _ensurePendTimer();
+    } else if (m == 'CUR' || m.startsWith('CUR#')) {
+      _onCur(m);
     } else if (m.startsWith('CLK#')) {
       // CLK#1#09783#1170#N   یا   CLK#0
       final p = m.split('#');

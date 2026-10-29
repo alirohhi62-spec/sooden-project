@@ -137,6 +137,23 @@ void main() {
     expect(s.scnLine(16), contains('۲ پل'));
     expect(find.text('ویرایش'), findsWidgets);
 
+    // پرده: درصد واقعی از پنل (فریمور با پرده‌ی شمارشی)
+    expect(s.curtainPairs, [
+      [12, 13]
+    ]);
+    c.onRaw(utf8.encode(r'$CUR#13---0$'));
+    await tester.pump();
+    expect(s.curPct[12], -1);
+    c.onRaw(utf8.encode(r'$K#001200$$CUR#130401$'));
+    s.tab.value = Sd23Controller.gCurtain;
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(s.curPct[12], 40);
+    expect(find.textContaining('در حال باز شدن - ۴۰٪ باز'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    c.onRaw(utf8.encode(r'$K#000200$$CUR#131000$'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('ایستاده - ۱۰۰٪ باز'), findsOneWidget);
+
     // سناریوهای گوشی
     c.onRaw(utf8.encode(r'$S01#11222222222222222222F0010#شب بخیر$$S02#-$$PND#01F=0004#$'));
     await tester.pump();
@@ -161,6 +178,28 @@ void main() {
     expect(find.byType(Panel12Screen), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 30)); // زمان‌سنج‌ها تمام شوند
+  });
+
+  testWidgets('6-pole with curtains: curtain tab, real percent', (tester) async {
+    await _setup(tester);
+    final c = Panel12Controller.instance;
+    final s = Sd23Controller.instance;
+    c.onRaw(utf8.encode(r'$MDL=SD23-p6-1.0$'));
+    c.onRaw(utf8.encode(r'$LAY#UWLLUWXM---------------$$CAP#A0R0W1S0C1V0$$K#000000$'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(s.curtainPairs, [
+      [0, 1],
+      [4, 5]
+    ]);
+    expect(s.tabs.contains(Sd23Controller.gCurtain), isTrue);
+    c.onRaw(utf8.encode(r'$CUR#010000#05---0$$K#000020$$CUR#010000#050152$'));
+    s.tab.value = Sd23Controller.gCurtain;
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(s.curPct[0], 0);
+    expect(s.curPct[4], 15);
+    expect(find.textContaining('ایستاده - ۰٪ باز'), findsOneWidget);
+    expect(find.textContaining('در حال بسته شدن - ۱۵٪ باز'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 30));
   });
 
   testWidgets('SD23 phone scenario tab and editor', (tester) async {
