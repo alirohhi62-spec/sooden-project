@@ -19,7 +19,7 @@ jobs:
       - name: failures as an annotation (the log file is not always reachable)
         if: always()
         run: |
-          sed 's/\x1b\[[0-9;]*m//g' test-log.txt | grep -A2 -E 'The following|The test description was' | grep -v 'package:flutter\|^--$' | head -150 > fails.txt || true
+          sed 's/\x1b\[[0-9;]*m//g' test-log.txt | grep -E 'The test description was: |^  Actual:|^Expected:|Failed assertion|A Timer is still' | sort | uniq -c | head -150 > fails.txt || true
           if [ -s fails.txt ]; then echo "::error title=failing tests::$(sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g' fails.txt)"; fi
       - uses: actions/upload-artifact@v4
         if: always()
