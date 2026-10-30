@@ -81,6 +81,14 @@ class Sim12Controller extends GetxController {
   final Map<int, Timer> _peerTimers = {};
   bool get peerView => panel.value == 1 && hasPeer.value;
 
+  // ---------- سه یا چهار پنل بدون CPU: پنل‌های دیگر ($CAP#..X<n>$ ، $PX#j#شماره#مدل#حروف#وصل$ ، $PXK#شماره#xxxxxx#وصل$ ، &PXK#شماره#nn) ----------
+  final RxInt peerCount = 0.obs;
+  final RxInt peerIdx = 0.obs;
+  bool _px = false;
+  final List<SdPeer> _pxs = [];
+  bool peerOnlineOf(int i) => _px ? (i - 1 < _pxs.length && _pxs[i - 1].online) : peerOnline.value;
+  SdPeer? get _pxSel => _px && peerIdx.value < _pxs.length ? _pxs[peerIdx.value] : null;
+
   // ---------- ارتباط ----------
   /// 'wifi' یا 'sms'
   final RxString link = 'wifi'.obs;
@@ -242,6 +250,10 @@ class Sim12Controller extends GetxController {
     Sd23Controller.instance.clockWasEstimate.value = false;
     hasPeer.value = false;                                  // پنل دوم را خود پنل دوباره می‌گوید ($CAP)
     panel.value = 0;
+    _px = false;
+    _pxs.clear();
+    peerCount.value = 0;
+    peerIdx.value = 0;
     peerLay.value = '';
     peerBits.value = 0;
     peerPending.clear();
@@ -855,13 +867,34 @@ class Sim12Controller extends GetxController {
 
   void handle(String m) {
     if (m.startsWith('CAP#')) {
+      final x = RegExp(r'X(\d)').firstMatch(m);
+      if (x != null) {                                       // سه یا چهار پنل بدون CPU
+        final n = int.parse(x.group(1)!);
+        if (!_px || peerCount.value != n) {
+          _px = true;
+          while (_pxs.length < n) {
+            _pxs.add(SdPeer());
+          }
+          for (int j = 1; j <= n; j++) {
+            if (!_queue.contains('@M_PX#$j')) _queue.add('@M_PX#$j');
+          }
+          _pump();
+        }
+        peerCount.value = n;
+        hasPeer.value = n > 0;
+        if (n == 0) panel.value = 0;
+        return;
+      }
       final peer = m.contains('P1');
       if (peer && !hasPeer.value && !_queue.contains('@M_P2')) {
         _queue.add('@M_P2');
         _pump();
       }
       hasPeer.value = peer;
+      peerCount.value = peer ? 1 : 0;
       if (!peer) panel.value = 0;
+    } else if (m.startsWith('PX')) {
+      _handlePx(m);
     } else if (m.startsWith('P2')) {
       _handlePeer(m);
     } else if (m.startsWith('LAY#')) {
@@ -1011,6 +1044,62 @@ class Sim12Controller extends GetxController {
     }
   }
 
+  /// PX#j#شماره#مدل#حروف#وصل ، PXK#شماره#xxxxxx#وصل ، PXA#شماره#nn#1|0 (سه یا چهار پنل)
+  void _handlePx(String m) {
+    final p = m.split('#');
+    if (m.startsWith('PX#') && p.length >= 3) {
+      final j = int.tryParse(p[1]);
+      if (j == null || j < 1 || j > 3) return;
+      while (_pxs.length < j) {
+        _pxs.add(SdPeer());
+      }
+      final e = _pxs[j - 1];
+      if (p[2] == '-' || p.length < 6) {
+        e.p = 0;
+        return;
+      }
+      e.p = int.tryParse(p[2]) ?? 0;
+      e.model = p[3];
+      e.lay = p[4];
+      e.online = p[5] == '1';
+      peerCount.refresh();
+      if (_pxSel == e) _pxShow();
+    } else if (m.startsWith('PXK#') && p.length >= 3) {
+      final n = int.tryParse(p[1]), v = int.tryParse(p[2], radix: 16);
+      if (n == null || v == null) return;
+      for (final e in _pxs) {
+        if (e.p != n) continue;
+        e.bits = v;
+        if (p.length >= 4) e.online = p[3] == '1';
+        if (_pxSel == e) {
+          final changed = v ^ peerBits.value;
+          _pxShow();
+          for (int k = 0; k < peerKeyCount; k++) {
+            if ((changed >> k) & 1 == 1) _peerDone(k);
+          }
+        }
+      }
+      peerCount.refresh();
+    } else if (m.startsWith('PXA#') && p.length >= 4) {
+      final k = (int.tryParse(p[2]) ?? 0) - 1;
+      _peerDone(k);
+      if (p[3] != '1') _say('این پنل الان به شبکه وصل نیست (کابل شبکه را بررسی کنید)', 'err');
+    }
+  }
+
+  /// پنل دیگرِ انتخاب‌شده در فیلدهای «پنل دوم»
+  void _pxShow() {
+    final e = _pxSel;
+    if (e == null) return;
+    peerModel.value = e.model;
+    var l = e.lay;
+    if (l.length > peerKeyCount) l = l.substring(0, peerKeyCount);
+    peerLay.value = l;
+    peerBits.value = e.bits;
+    peerOnline.value = e.online;
+    _syncPeerFace();
+  }
+
   void _peerDone(int k) {
     _peerTimers.remove(k)?.cancel();
     peerPending.remove(k);
@@ -1054,10 +1143,19 @@ class Sim12Controller extends GetxController {
       peerPending.remove(k);
       _say('پنل جواب نداد', 'err');
     });
-    _sendWifi('&P2K#${_two(k + 1)}');
+    _sendWifi(_pxSel != null ? '&PXK#${_pxSel!.p}#${_two(k + 1)}' : '&P2K#${_two(k + 1)}');
   }
 
+  /// زبانه i: ۰ همین پنل، ۱ پنل دوم (سه یا چهار پنل: پنل دیگرِ i ام)
   void selectPanel(int i) {
+    if (i >= 1 && _px) {
+      if (i > _pxs.length || _pxs[i - 1].p == 0) return;
+      peerIdx.value = i - 1;
+      panel.value = 1;
+      _pxShow();
+      if (!smsMode) _sendWifi('@M_PX#$i');
+      return;
+    }
     if (i == 1 && !hasPeer.value) return;
     panel.value = i;
     _syncPeerFace();

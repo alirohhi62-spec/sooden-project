@@ -240,7 +240,8 @@ class Sd23Screen extends StatelessWidget {
     return Obx(() {
       if (!c.hasPeer.value) return const SizedBox.shrink();
       c.panelNames.length;
-      final sel = c.panel.value, online = c.peerOnline.value;
+      final n = c.peerCount.value < 1 ? 1 : c.peerCount.value;   // (سه یا چهار پنل: هر پنل دیگر یک زبانه)
+      final sel = c.panel.value == 0 ? 0 : c.peerIdx.value + 1, online = c.peerOnline.value;
       Widget tabOf(int i) {
         final on = sel == i;
         return Expanded(
@@ -267,9 +268,9 @@ class Sd23Screen extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: on ? _text : _muted, fontSize: 13, fontWeight: FontWeight.w700)),
                 ),
-                if (i == 1) ...[
+                if (i >= 1) ...[
                   const SizedBox(width: 6),
-                  Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: online ? _ok : _amber)),
+                  Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: c.peerOnlineOf(i) ? _ok : _amber)),
                 ],
               ]),
             ),
@@ -280,12 +281,12 @@ class Sd23Screen extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
         child: Column(children: [
-          Row(children: [tabOf(0), tabOf(1)]),
-          if (sel == 1 && !online)
-            const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Text('پنل دوم به این پنل وصل نیست (کابل شبکه را بررسی کنید)',
-                  textAlign: TextAlign.center, style: TextStyle(color: _amber, fontSize: 11.5)),
+          Row(children: [for (int i = 0; i <= n; i++) tabOf(i)]),
+          if (sel >= 1 && !online)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(n > 1 ? 'این پنل الان به شبکه وصل نیست (کابل شبکه را بررسی کنید)' : 'پنل دوم به این پنل وصل نیست (کابل شبکه را بررسی کنید)',
+                  textAlign: TextAlign.center, style: const TextStyle(color: _amber, fontSize: 11.5)),
             ),
         ]),
       );
@@ -1379,7 +1380,7 @@ class Sd23OwnOnly extends StatelessWidget {
           Text('$what برای ${c.panelName(0)} است',
               textAlign: TextAlign.center, style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          Text('الان ${c.panelName(1)} انتخاب شده است.', textAlign: TextAlign.center, style: const TextStyle(color: _muted, fontSize: 12.5)),
+          Text('الان ${c.panelName(c.peerIdx.value + 1)} انتخاب شده است.', textAlign: TextAlign.center, style: const TextStyle(color: _muted, fontSize: 12.5)),
           const SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: _red, foregroundColor: Colors.white),

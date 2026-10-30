@@ -89,6 +89,8 @@ class Sim12Screen extends StatelessWidget {
             c.curtainPos.toList();
             c.scnWaiting.value;
             c.hasPeer.value;
+            c.peerCount.value;
+            c.peerIdx.value;
             c.peerOnline.value;
             c.peerBits.value;
             c.peerLay.value;
@@ -242,7 +244,8 @@ class Sim12Screen extends StatelessWidget {
   /// فقط وقتی پنل بگوید پنل دوم دارد؛ نگه داشتن: تغییر اسم
   Widget _panelTabs(BuildContext context) {
     if (!c.hasPeer.value) return const SizedBox.shrink();
-    final sel = c.peerView ? 1 : 0, online = c.peerOnline.value;
+    final n = c.peerCount.value < 1 ? 1 : c.peerCount.value;   // (سه یا چهار پنل: هر پنل دیگر یک زبانه)
+    final sel = c.peerView ? c.peerIdx.value + 1 : 0;
     Widget tabOf(int i) {
       final on = sel == i;
       return Expanded(
@@ -266,9 +269,9 @@ class Sim12Screen extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: on ? _text : _muted, fontSize: 13, fontWeight: FontWeight.w700)),
               ),
-              if (i == 1) ...[
+              if (i >= 1) ...[
                 const SizedBox(width: 6),
-                Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: online ? _greenLit : _amber)),
+                Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: c.peerOnlineOf(i) ? _greenLit : _amber)),
               ],
             ]),
           ),
@@ -278,7 +281,7 @@ class Sim12Screen extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(13, 0, 13, 6),
-      child: Row(children: [tabOf(0), tabOf(1)]),
+      child: Row(children: [for (int i = 0; i <= n; i++) tabOf(i)]),
     );
   }
 

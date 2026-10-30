@@ -272,6 +272,18 @@ class Sd23Controller extends GetxController {
   final RxMap<int, String> panelNames = <int, String>{}.obs;
   bool get peerView => panel.value == 1;
 
+  // ---------- سه یا چهار پنل بدون CPU: پنل‌های دیگر از راه همین پنل ----------
+  // @M_CAP -> $CAP#..X<n>$ ، @M_PX#j -> $PX#j#شماره#مدل#حروف#وصل$ (یا $PX#j#-$) ، $PXK#شماره#xxxxxx#وصل$ ، &PXK#شماره#nn -> $PXA#شماره#nn#1|0$
+  /// تعداد پنل‌های دیگر (۰: هیچ، یا فقط پنل دوم شبکه دو پنلی)
+  final RxInt peerCount = 0.obs;
+  /// پنل دیگری که صفحه نشان می‌دهد (۰ تا peerCount - ۱)
+  final RxInt peerIdx = 0.obs;
+  bool _px = false;
+  final List<SdPeer> _pxs = [];
+  /// زبانه i (۱ به بعد) وصل است؟
+  bool peerOnlineOf(int i) => _px ? (i - 1 < _pxs.length && _pxs[i - 1].online) : peerOnline.value;
+  SdPeer? get _pxSel => _px && peerIdx.value < _pxs.length ? _pxs[peerIdx.value] : null;
+
   Sd23Simulator? _sim;
   final List<int> _demoRx = [];
   final Map<String, Timer> _expects = {};
@@ -708,6 +720,10 @@ class Sd23Controller extends GetxController {
     peerModel.value = '';
     _peerLay = '-' * keyCount;
     _peerBits = 0;
+    _px = false;
+    _pxs.clear();
+    peerCount.value = 0;
+    peerIdx.value = 0;
     _loadTimer?.cancel();
     _loadTimer = null;
     _loadQueue.clear();
@@ -767,6 +783,7 @@ class Sd23Controller extends GetxController {
 
   /// متن بین دو $ (Panel12Controller پیام‌های این پنل را به اینجا می‌فرستد)
   void handle(String m) {
+    if (m.startsWith('PX')) return _handlePx(m);
     if (m.startsWith('P2')) return _handlePeer(m);
     if (peerView && _shadow(m)) return;
     if (m.startsWith('LAY#')) {
@@ -785,9 +802,26 @@ class Sd23Controller extends GetxController {
       hasCf.value = hasSettings.value || m.contains('C1');
       hasVac.value = !m.contains('V0');
       if (((!had && hasSettings.value) || (!hadCf && hasCf.value)) && layKnown.value) _askSettings();
-      final peer = m.contains('P1');
-      if (peer && !hasPeer.value) _queue('@M_P2');
-      hasPeer.value = peer;
+      final x = RegExp(r'X(\d)').firstMatch(m);
+      if (x != null) {                                       // چند پنل بدون CPU
+        final n = int.parse(x.group(1)!);
+        if (!_px || peerCount.value != n) {
+          _px = true;
+          while (_pxs.length < n) {
+            _pxs.add(SdPeer());
+          }
+          for (int j = 1; j <= n; j++) {
+            _queue('@M_PX#$j');
+          }
+        }
+        peerCount.value = n;
+        hasPeer.value = n > 0;
+      } else {
+        final peer = m.contains('P1');
+        if (peer && !hasPeer.value) _queue('@M_P2');
+        hasPeer.value = peer;
+        peerCount.value = peer ? 1 : 0;
+      }
     } else if (m.startsWith('K#')) {
       final v = int.tryParse(m.substring(2), radix: 16);
       if (v != null) {
@@ -1134,6 +1168,55 @@ class Sd23Controller extends GetxController {
     }
   }
 
+  /// پیام‌های پنل‌های دیگر (سه یا چهار پنل): PX#j#شماره#مدل#حروف#وصل ، PXK#شماره#xxxxxx#وصل ، PXA#شماره#nn#1|0
+  void _handlePx(String m) {
+    final p = m.split('#');
+    if (m.startsWith('PX#') && p.length >= 3) {
+      final j = int.tryParse(p[1]);
+      if (j == null || j < 1 || j > 3) return;
+      while (_pxs.length < j) {
+        _pxs.add(SdPeer());
+      }
+      final e = _pxs[j - 1];
+      if (p[2] == '-' || p.length < 6) {
+        e.p = 0;
+        return;
+      }
+      e.p = int.tryParse(p[2]) ?? 0;
+      e.model = p[3];
+      e.lay = p[4].padRight(keyCount, '-').substring(0, keyCount);
+      e.online = p[5] == '1';
+      peerCount.refresh();
+      _loadNames();
+      if (peerView && _pxSel == e) {
+        _peerLay = e.lay;
+        peerModel.value = e.model;
+        peerOnline.value = e.online;
+        lay.value = _peerLay;
+        model.value = e.model;
+      }
+    } else if (m.startsWith('PXK#') && p.length >= 3) {
+      final n = int.tryParse(p[1]), v = int.tryParse(p[2], radix: 16);
+      if (n == null || v == null) return;
+      for (final e in _pxs) {
+        if (e.p != n) continue;
+        e.bits = v;
+        if (p.length >= 4) e.online = p[3] == '1';
+        if (_pxSel == e) {
+          _peerBits = v;
+          peerOnline.value = e.online;
+          if (peerView) bits.value = v;
+        }
+      }
+      peerCount.refresh();
+    } else if (m.startsWith('PXA#') && p.length >= 4) {
+      final k = int.tryParse(p[2]);
+      if (k == null) return;
+      _confirm('p$k');
+      if (p[3] != '1') _notify('این پنل الان با پنل وای‌فای‌دار ارتباط ندارد (کابل شبکه را بررسی کنید)', 'err');
+    }
+  }
+
   /// پیام‌های خود پنل وقتی صفحه پنل دوم را نشان می‌دهد: کنار گذاشته می‌شوند تا برگشت
   bool _shadow(String m) {
     if (m.startsWith('K#')) {
@@ -1152,7 +1235,7 @@ class Sd23Controller extends GetxController {
       _oSettings = m.contains('S1');
       _oCf = _oSettings || m.contains('C1');
       _oVac = !m.contains('V0');
-      hasPeer.value = m.contains('P1');
+      hasPeer.value = m.contains('P1') || RegExp(r'X[1-9]').hasMatch(m);
       return true;
     }
     if (m.length >= 4 && m[0] == 'L' && m[3] == '#') {
@@ -1167,8 +1250,29 @@ class Sd23Controller extends GetxController {
     return false;
   }
 
-  /// نشان دادن پنل ۱ (خود این پنل) یا پنل ۲
+  /// نشان دادن پنل ۱ (خود این پنل) یا پنل ۲ (سه یا چهار پنل: زبانه i = پنل دیگرِ i ام)
   void selectPanel(int i) {
+    if (i >= 1 && _px) {
+      if (i > _pxs.length || _pxs[i - 1].p == 0) return;
+      if (peerView && peerIdx.value == i - 1) return;
+      final e = _pxs[i - 1];
+      final was = peerView;
+      peerIdx.value = i - 1;
+      _peerLay = e.lay;
+      _peerBits = e.bits;
+      peerModel.value = e.model;
+      peerOnline.value = e.online;
+      if (was) {
+        lay.value = _peerLay;
+        bits.value = _peerBits;
+        model.value = e.model;
+        _loadPeerLabels();
+        _send('@M_PX#$i');
+        if (!tabs.contains(tab.value) && tabs.isNotEmpty) tab.value = tabs.first;
+        return;
+      }
+      i = 1;
+    }
     if (i == panel.value || (i == 1 && !hasPeer.value)) return;
     if (i == 1) {
       _oLay = lay.value;
@@ -1184,33 +1288,40 @@ class Sd23Controller extends GetxController {
       lay.value = _peerLay;
       bits.value = _peerBits;
       model.value = peerModel.value;
-      final saved = _load('lbl');
-      final lb = List<String>.filled(keyCount, ''), ic = List<String>.filled(keyCount, '');
-      if (saved is Map) {
-        saved.forEach((k, v) {
-          final n = int.tryParse('$k');
-          final t = '$v';
-          final j = t.indexOf('~');
-          if (n == null || n < 0 || n >= keyCount || j < 0) return;
-          ic[n] = t.substring(0, j);
-          lb[n] = t.substring(j + 1);
-        });
-      }
-      labels.assignAll(lb);
-      iconIds.assignAll(ic);
+      _loadPeerLabels();
       hasAlarm.value = false;
       hasSettings.value = false;
       hasCf.value = false;
       hasVac.value = true;
       entry.value = '';
       buf.value = '';
-      _send('@M_P2');
+      _send(_px ? '@M_PX#${peerIdx.value + 1}' : '@M_P2');
     } else {
       _showOwn();
       _send('@K');
     }
     if (!tabs.contains(tab.value) && tabs.isNotEmpty) tab.value = tabs.first;
   }
+
+  /// متن کلیدهای پنل دیگر (روی همین گوشی)
+  void _loadPeerLabels() {
+    final saved = _load(_lbl);
+    final lb = List<String>.filled(keyCount, ''), ic = List<String>.filled(keyCount, '');
+    if (saved is Map) {
+      saved.forEach((k, v) {
+        final n = int.tryParse('$k');
+        final t = '$v';
+        final j = t.indexOf('~');
+        if (n == null || n < 0 || n >= keyCount || j < 0) return;
+        ic[n] = t.substring(0, j);
+        lb[n] = t.substring(j + 1);
+      });
+    }
+    labels.assignAll(lb);
+    iconIds.assignAll(ic);
+  }
+
+  String get _lbl => _pxSel != null ? 'lbl${_pxSel!.p}' : 'lbl';
 
   void _showOwn() {
     panel.value = 0;
@@ -1253,7 +1364,9 @@ class Sd23Controller extends GetxController {
   }
 
   /// این دو پنل (هر جفت پنل اسم‌ها و متن‌های خودش را دارد)
-  String get _pairKey => 'sd23pair_${panel.value == 1 ? _oModel : model.value}_${panel.value == 1 ? _oLay : lay.value}_${peerModel.value}_$_peerLay';
+  String get _pairKey => _px
+      ? 'sd23grp_${panel.value == 1 ? _oModel : model.value}_${panel.value == 1 ? _oLay : lay.value}_${_pxs.map((e) => '${e.p}${e.model}').join('_')}'
+      : 'sd23pair_${panel.value == 1 ? _oModel : model.value}_${panel.value == 1 ? _oLay : lay.value}_${peerModel.value}_$_peerLay';
 
   static final Map<String, dynamic> _mem = {};
 
@@ -1341,7 +1454,7 @@ class Sd23Controller extends GetxController {
     if (peerView) {
       if (!peerOnline.value) return _notify('پنل دوم الان با این پنل ارتباط ندارد (کابل شبکه را بررسی کنید)', 'err');
       _expect('p${k + 1}');
-      _send('&P2K#${_two(k + 1)}');
+      _send(_pxSel != null ? '&PXK#${_pxSel!.p}#${_two(k + 1)}' : '&P2K#${_two(k + 1)}');
       return;
     }
     _expect('k${k + 1}');
@@ -1555,7 +1668,7 @@ class Sd23Controller extends GetxController {
       // پنل دوم: متن کلیدها روی همین گوشی
       labels[index] = clean;
       iconIds[index] = ic;
-      _store('lbl', {for (int k = 0; k < keyCount; k++) '$k': '${iconIds[k]}~${labels[k]}'});
+      _store(_lbl, {for (int k = 0; k < keyCount; k++) '$k': '${iconIds[k]}~${labels[k]}'});
       _notify('روی این گوشی ثبت شد', 'ok');
       return;
     }
@@ -1639,4 +1752,12 @@ class Sd23Controller extends GetxController {
       });
     }
   }
+}
+
+/// یکی از پنل‌های دیگرِ شبکه (سه یا چهار پنل بدون CPU)
+class SdPeer {
+  int p = 0;
+  String model = '', lay = '-' * Sd23Controller.keyCount;
+  int bits = 0;
+  bool online = false;
 }
