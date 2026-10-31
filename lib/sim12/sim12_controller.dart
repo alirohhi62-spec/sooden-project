@@ -52,6 +52,9 @@ class Sim12Controller extends GetxController {
   final RxInt bits = 0.obs;
   final RxList<String> labels = List<String>.filled(keyCount, '').obs;
 
+  /// هنوز چیزهایی از پنل خوانده می‌شود (بعد از اتصال: اول چیدمان و کلیدها، بعد بقیه پشت صحنه)
+  final RxBool loading = false.obs;
+
   /// دزدگیر
   final RxInt alarm = 0.obs;
   final RxInt armedZones = 0.obs;
@@ -128,6 +131,11 @@ class Sim12Controller extends GetxController {
   static const _kForce = 'sim12_force_sms';
   static const _kAutoTime = 'sim12_auto_time';
   static const _kNames = 'sim12_panel_names';
+  /// اسم کلیدها روی همین گوشی (هر مکان جدا): صفحه از لحظه‌ی اول با اسم‌ها باز می‌شود؛ پنل دوباره خوانده می‌شود
+  static const _kLabels = 'sim12_labels';
+  final Map<int, String> _lblNew = {};
+  final Map<int, Sim12Cf> _cfNew = {};
+  Timer? _lblTimer;
 
   void _loadLocal() {
     panelNumber.value = LocStore.read<String>(_kNumber) ?? '';
@@ -144,6 +152,10 @@ class Sim12Controller extends GetxController {
       });
     } catch (_) {}
     panelNames.assignAll(names);
+    try {
+      final l = LocStore.read<List>(_kLabels);
+      labels.assignAll(l != null && l.length == keyCount ? [for (final x in l) '$x'] : List<String>.filled(keyCount, ''));
+    } catch (_) {}
     try {
       final cp = LocStore.read<List>('sim12_curtain_pos');
       if (cp != null && cp.length == 2) curtainPos.assignAll([for (final x in cp) (x as num).toDouble()]);
@@ -265,22 +277,25 @@ class Sim12Controller extends GetxController {
   }
 
   void reload() {
+    // اول آنچه صفحه با آن کار می‌کند (چیدمان، کلیدها، پنل دوم، درصد پرده‌ها)، بعد بقیه پشت صحنه؛
+    // اسم کلیدها آخر (از روی گوشی همان لحظه نشان داده شده‌اند)
     _queue
       ..clear()
-      ..addAll(['@M_CLK', if (Sd23Controller.phoneClock) Sd23Controller.clockCommand(), '@M_LAY', '@K', '@M_CAP', '@X1Z', '@M_SIM', '@M_EV'])
-      ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
+      ..addAll(['@M_LAY', '@K', '@M_CAP', '@M_POS', '@X1Z', '@M_SIM', '@M_CLK', if (Sd23Controller.phoneClock) Sd23Controller.clockCommand(), '@M_EV'])
       // سناریوها (پل‌ها و زمان خروج)، مستر و پرده‌ها (زمان حرکت برای درصد)
       ..addAll([for (final n in [16, 17, 18, 19, 20, 22, 24, 25, 26, 27]) '@M_CF#${_two(n)}'])
-      ..add('@M_POS');
+      ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}']);
     _pump();
   }
 
   void _pump() {
     if (_loadTimer != null) return;
+    loading.value = true;
     _loadTimer = Timer.periodic(const Duration(milliseconds: 260), (t) {
       if (_queue.isEmpty) {
         t.cancel();
         _loadTimer = null;
+        Timer(const Duration(milliseconds: 600), () => loading.value = _loadTimer != null);   // (the last answers)
         return;
       }
       _sendWifi(_queue.removeAt(0));
@@ -386,6 +401,29 @@ class Sim12Controller extends GetxController {
   }
 
   bool get smsMode => link.value == 'sms';
+
+  /// اسم یک کلید از پنل: فقط اگر عوض شده، و چند تا با هم (یک بار ساختن صفحه، نه ۲۷ بار)
+  void _setLabel(int k, String v) {
+    if (labels[k] == v && !_lblNew.containsKey(k)) return;
+    _lblNew[k] = v;
+    _lblTimer?.cancel();
+    _lblTimer = Timer(const Duration(milliseconds: 400), _flushLabels);
+  }
+
+  void _flushLabels() {
+    if (_cfNew.isNotEmpty) {
+      cf.addAll(_cfNew);
+      _cfNew.clear();
+    }
+    if (_lblNew.isEmpty) return;
+    final l = labels.toList();
+    _lblNew.forEach((k, v) => l[k] = v);
+    _lblNew.clear();
+    labels.assignAll(l);
+    try {
+      LocStore.write(_kLabels, l);
+    } catch (_) {}
+  }
 
   void _sendWifi(String s) {
     final b = utf8.encode(s);
@@ -926,7 +964,7 @@ class Sim12Controller extends GetxController {
       final k = (int.tryParse(m.substring(1, 3)) ?? 0) - 1;
       final t = m.indexOf('~');
       if (k >= 0 && k < keyCount) {
-        labels[k] = t >= 0 ? m.substring(t + 1) : m.substring(4);
+        _setLabel(k, t >= 0 ? m.substring(t + 1) : m.substring(4));
         _got('L${_two(k + 1)}', true);
       }
     } else if (m.startsWith('ACF#')) {
@@ -957,7 +995,14 @@ class Sim12Controller extends GetxController {
         final n = int.tryParse(p[0]) ?? 0;
         int h(String x) => int.tryParse(x, radix: 16) ?? 0;
         if (n >= 1 && n <= keyCount) {
-          cf[n - 1] = Sim12Cf(h(p[1]), h(p[2]), h(p[3]), h(p[4]), h(p[5]), h(p[6]));
+          final v = Sim12Cf(h(p[1]), h(p[2]), h(p[3]), h(p[4]), h(p[5]), h(p[6]));
+          if (_loadTimer != null && !_writeTimers.containsKey('C${p[0]}')) {
+            _cfNew[n - 1] = v;                               // reading after a connection: all of them at once
+            _lblTimer?.cancel();
+            _lblTimer = Timer(const Duration(milliseconds: 400), _flushLabels);
+          } else {
+            cf[n - 1] = v;
+          }
           _got('C${p[0]}', true);
         }
       }

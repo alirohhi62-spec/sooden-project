@@ -10,6 +10,7 @@ import 'package:bms/panel12/panel12_controller.dart';
 import 'package:bms/panel12/panel12_screen.dart';
 import 'package:bms/sd23/sd23_controller.dart';
 import 'package:bms/sd23/sd23_screen.dart';
+import 'package:bms/sim12/sim12_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -130,6 +131,45 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(c.isNet.value, isFalse);
     expect(find.text('›  خانه'), findsNothing);
+    await tester.pump(const Duration(seconds: 30));
+  });
+
+  testWidgets('CPU network: the SIM panel through the module with all 27 keys (curtains 24..27)', (tester) async {
+    isLoggerEnable = false;
+    await _loadFonts();
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+    final c = Panel12Controller.instance;
+    final n = NetController.instance;
+    final s = Sd23Controller.instance;
+    void rx(String m) => c.onRaw(utf8.encode(m));
+    await tester.pumpWidget(_app(Panel12TabHost(home: Container(color: Colors.white))));
+    await tester.pump();
+    rx(r'$MDL=SDNET-01-1.0$');
+    await tester.pump(const Duration(milliseconds: 800));
+    rx(r'$NET#01$$NP#01#1#p12#دزدگیر$$NO#00000001$');
+    await tester.pump();
+    await tester.tap(find.text('دزدگیر'));
+    await tester.pump();
+    rx(r'$P#01$');
+    await tester.pump();
+    rx(r'$MDL=SD23-p12-1.0$');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(s.model.value, 'p12');
+    // همان پیام‌های fw_wmod در p12/sim/tp12wmod.js
+    rx(r'$LAY#LLLLLLLLLLLLLLLSSSSXHMEUWUW$$CAP#A0R0W1S0V0N1$$K#4800010$');
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(s.lay.value, 'LLLLLLLLLLLLLLLSSSSXHMEUWUW');
+    expect(s.isOn(4), isTrue);
+    expect(s.isOn(23), isTrue, reason: 'curtain 1 open (key 24)');
+    expect(s.isOn(26), isTrue, reason: 'curtain 2 close (key 27)');
+    expect(find.byType(Sim12Photo), findsOneWidget, reason: 'the SIM panel is drawn as itself');
+    expect(s.lblCount, 27, reason: 'names of all 27 keys are asked');
+    rx(r'$L24#پرده سالن$');
+    await tester.pump();
+    expect(s.labels[23], 'پرده سالن');
     await tester.pump(const Duration(seconds: 30));
   });
 }

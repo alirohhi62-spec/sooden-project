@@ -345,9 +345,11 @@ class Sd23Screen extends StatelessWidget {
             c.labels.length;
             c.iconIds.length;
             if (c.model.value == 'e12') return _frame(_e12Panel());
-            // پنل سیمکارتی به‌عنوان پنل ۲: عکس خودش (بیت n = کلید شبکه‌ی n، مثل پروگرمر)
+            // پنل سیمکارتی به‌عنوان پنل ۲: عکس خودش (بیت n = کلید شبکه‌ی n، مثل پروگرمر)؛
+            // از راه ماژول شبکه‌ی CPU: بیت k = کلید k (همه‌ی ۲۷ کلید، سناریوها و مستر هم)
             if (c.model.value == 'p12') {
-              int net(int k) => _p12Net.indexOf(k);
+              final cpu = Panel12Controller.instance.isNet.value;
+              int net(int k) => cpu ? k : _p12Net.indexOf(k);
               return Sim12Photo(isOn: (k) => net(k) >= 0 && c.isOn(net(k)), onTap: (k) {
                 if (net(k) >= 0) _pickOnPanel(net(k));
               });

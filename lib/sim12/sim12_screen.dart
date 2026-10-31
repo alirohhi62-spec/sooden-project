@@ -137,7 +137,10 @@ class Sim12Screen extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(c.peerView && c.peerModelName.isNotEmpty ? c.peerModelName : 'پنل سیمکارتی',
                   style: const TextStyle(color: _text, fontSize: 17, fontWeight: FontWeight.w700)),
-              Text(c.peerView ? 'از راه پنل سیمکارتی' : '۱۲ پل، دزدگیر، سیمکارت', style: const TextStyle(color: _muted, fontSize: 12)),
+              // بعد از اتصال: کلیدها همان اول کار می‌کنند، بقیه (سناریوها، اسم‌ها، سیمکارت) پشت صحنه خوانده می‌شود
+              c.loading.value && !sms && !c.peerView
+                  ? const Text('در حال خواندن از پنل…', key: ValueKey('sim12-loading'), style: TextStyle(color: _amberText, fontSize: 12))
+                  : Text(c.peerView ? 'از راه پنل سیمکارتی' : '۱۲ پل، دزدگیر، سیمکارت', style: const TextStyle(color: _muted, fontSize: 12)),
             ]),
           ),
         ),

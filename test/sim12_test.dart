@@ -52,6 +52,8 @@ void main() {
     c.onRaw(utf8.encode(r'$LAY#---------------------------$$K#0000025$$AL#2#1#2$$SIM#1#4#2#1245000$'));
     c.onRaw(utf8.encode(r'$L01#FF~لوستر سالن$$L02#FF~هالوژن$$EV#09425.0495.2.0.1;09425.0100.3.2.0$'));
     await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('در حال خواندن از پنل…'), findsOneWidget, reason: 'the rest is read in the background');
+    await tester.pump(const Duration(milliseconds: 300));   // (key names come together, not one rebuild each)
     expect(s.lay.value, Sim12Controller.defaultLay); // پنل بدون نقش: چیدمان پیش‌فرض
     expect(s.isOn(0), isTrue);
     expect(s.isOn(2), isTrue);

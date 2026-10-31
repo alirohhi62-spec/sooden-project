@@ -145,6 +145,12 @@ class Sd23Controller extends GetxController {
   }
 
   static const int keyCount = 23;
+
+  /// پنل سیمکارتی از راه ماژول وای‌فای شبکه‌ی CPU با ۲۷ کلیدش دیده می‌شود (کلید ۲۴ تا ۲۷ = پرده‌ها)
+  static const int maxKeys = 27;
+
+  /// کلیدهای این پنل: چیدمان و اسم‌ها تا کجا (پنل‌های دیگر ۲۳ کلید دارند)
+  int get lblCount => model.value == 'p12' ? maxKeys : keyCount;
   static const int labelBytes = 40; // ۲۰ حرف فارسی
   static const int phoneCount = 12;
   static const int phoneNameBytes = 18; // ۹ حرف فارسی
@@ -202,8 +208,8 @@ class Sd23Controller extends GetxController {
   final RxBool hasVac = true.obs;
   final RxInt bits = 0.obs;
   final RxInt alarm = 0.obs;
-  final RxList<String> labels = List<String>.filled(keyCount, '').obs;
-  final RxList<String> iconIds = List<String>.filled(keyCount, '').obs;
+  final RxList<String> labels = List<String>.filled(maxKeys, '').obs;
+  final RxList<String> iconIds = List<String>.filled(maxKeys, '').obs;
   final RxSet<String> flashing = <String>{}.obs;
 
   /// تنظیمات کلیدها (فقط کلیدهایی که پرسیده شده‌اند)
@@ -267,7 +273,7 @@ class Sd23Controller extends GetxController {
   /// داده‌های خود پنل وقتی صفحه پنل دوم را نشان می‌دهد
   String _oLay = '-' * keyCount, _oModel = '';
   int _oBits = 0;
-  List<String> _oLabels = List<String>.filled(keyCount, ''), _oIcons = List<String>.filled(keyCount, '');
+  List<String> _oLabels = List<String>.filled(maxKeys, ''), _oIcons = List<String>.filled(maxKeys, '');
   bool _oAlarm = false, _oSettings = false, _oCf = false, _oVac = true;
   final RxMap<int, String> panelNames = <int, String>{}.obs;
   bool get peerView => panel.value == 1;
@@ -536,8 +542,8 @@ class Sd23Controller extends GetxController {
     final m = p.length > 1 ? p[1] : '';
     final v = p.length > 2 ? p.sublist(2).join('-') : '';
     if (m != model.value) {
-      labels.assignAll(List<String>.filled(keyCount, ''));
-      iconIds.assignAll(List<String>.filled(keyCount, ''));
+      labels.assignAll(List<String>.filled(maxKeys, ''));
+      iconIds.assignAll(List<String>.filled(maxKeys, ''));
       cf.clear();
       phone.assignAll(List<Sd23PhoneScn?>.filled(phoneCount, null));
       phoneLoaded.value = false;
@@ -555,7 +561,7 @@ class Sd23Controller extends GetxController {
     _loadQueue
       ..clear()
       ..addAll(['@M_CLK', if (phoneClock) clockCommand(), '@M_LAY', '@M_CAP', '@K', '@X1Z'])   // ساعت پنل اول (تقریبی بود؟) بعد ساعت گوشی
-      ..addAll([for (int i = 1; i <= keyCount; i++) '@M_LBL#${_two(i)}'])
+      ..addAll([for (int i = 1; i <= lblCount; i++) '@M_LBL#${_two(i)}'])
       ..add('@M_VAC');
     _loadTimer?.cancel();
     _loadTimer = Timer.periodic(const Duration(milliseconds: 260), (t) {
@@ -618,7 +624,7 @@ class Sd23Controller extends GetxController {
     for (final g in m.split('#').skip(1)) {
       if (g.length < 6) continue;
       final k = int.tryParse(g.substring(0, 2));
-      if (k == null || k < 1 || k > keyCount) continue;
+      if (k == null || k < 1 || k > maxKeys) continue;
       next[k - 1] = int.tryParse(g.substring(2, 5)) ?? -1;
     }
     curPct.assignAll(next);
@@ -753,8 +759,8 @@ class Sd23Controller extends GetxController {
     hasVac.value = true;
     bits.value = 0;
     alarm.value = 0;
-    labels.assignAll(List<String>.filled(keyCount, ''));
-    iconIds.assignAll(List<String>.filled(keyCount, ''));
+    labels.assignAll(List<String>.filled(maxKeys, ''));
+    iconIds.assignAll(List<String>.filled(maxKeys, ''));
     cf.clear();
     curPct.clear();
     _curPoll?.cancel();
@@ -788,8 +794,9 @@ class Sd23Controller extends GetxController {
     if (peerView && _shadow(m)) return;
     if (m.startsWith('LAY#')) {
       var l = m.substring(4);
-      if (l.length < keyCount) l = l.padRight(keyCount, '-');
-      lay.value = l.substring(0, keyCount);
+      final nk = lblCount;
+      if (l.length < nk) l = l.padRight(nk, '-');
+      lay.value = l.substring(0, nk);
       layKnown.value = true;
       if (!tabs.contains(tab.value) && tabs.isNotEmpty) tab.value = tabs.first;
       _askSettings();
@@ -940,7 +947,7 @@ class Sd23Controller extends GetxController {
       _checkWrite('P${_two(n)}', body);
     } else if (m.length >= 4 && m[0] == 'L' && m[3] == '#') {
       final n = int.tryParse(m.substring(1, 3));
-      if (n == null || n < 1 || n > keyCount) return;
+      if (n == null || n < 1 || n > maxKeys) return;
       final body = m.substring(4);
       final mm = RegExp(r'^(\d\d)~').firstMatch(body);
       iconIds[n - 1] = mm != null ? mm.group(1)! : '';
@@ -1306,13 +1313,13 @@ class Sd23Controller extends GetxController {
   /// متن کلیدهای پنل دیگر (روی همین گوشی)
   void _loadPeerLabels() {
     final saved = _load(_lbl);
-    final lb = List<String>.filled(keyCount, ''), ic = List<String>.filled(keyCount, '');
+    final lb = List<String>.filled(maxKeys, ''), ic = List<String>.filled(maxKeys, '');
     if (saved is Map) {
       saved.forEach((k, v) {
         final n = int.tryParse('$k');
         final t = '$v';
         final j = t.indexOf('~');
-        if (n == null || n < 0 || n >= keyCount || j < 0) return;
+        if (n == null || n < 0 || n >= maxKeys || j < 0) return;
         ic[n] = t.substring(0, j);
         lb[n] = t.substring(j + 1);
       });
@@ -1668,7 +1675,7 @@ class Sd23Controller extends GetxController {
       // پنل دوم: متن کلیدها روی همین گوشی
       labels[index] = clean;
       iconIds[index] = ic;
-      _store(_lbl, {for (int k = 0; k < keyCount; k++) '$k': '${iconIds[k]}~${labels[k]}'});
+      _store(_lbl, {for (int k = 0; k < maxKeys; k++) '$k': '${iconIds[k]}~${labels[k]}'});
       _notify('روی این گوشی ثبت شد', 'ok');
       return;
     }
