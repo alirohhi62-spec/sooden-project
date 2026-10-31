@@ -1,0 +1,6 @@
+
+::group::✅ Passing tests
+✅ SIM12 panel page
+::endgroup::
+
+🎉 1 test passed.
