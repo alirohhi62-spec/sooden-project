@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 12.7 12.7"
+    id="cctv-camera">
+    <path fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round"
+        stroke-width=".529"
+        d="M 6.3499994,4.7625001 V 4.4979167 h 5.2916676 l -1.322917,1.5875 H 6.3499996 Z"></path>
+    <path fill="none" stroke="#000" stroke-linejoin="round" stroke-width=".529"
+        d="m 6.3499997,5.0270833 -3.175,-1e-7 -3e-7,3.227917 H 9.2604167 V 6.0854167"></path>
+    <path
+        style="line-height:normal;font-variant-ligatures:normal;font-variant-position:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-alternates:normal;font-feature-settings:normal;text-indent:0;text-align:start;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:#000;text-transform:none;text-orientation:mixed;white-space:normal;shape-padding:0;isolation:auto;mix-blend-mode:normal;solid-color:#000;solid-opacity:1"
+        d="m 3.1757812,6.9316406 v 0.5292969 h 1.8515626 c 0.3528644,0 0.3528644,-0.5292969 0,-0.5292969 z"
+        color="#000" enable-background="accumulate" font-family="sans-serif" font-weight="400"
+        overflow="visible"></path>
+    <path fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round"
+        stroke-width=".529"
+        d="m 0.79375,4.4979167 -10e-9,7.1437503 H 1.5875 V 4.2333333 l -0.79375,0 z"></path>
+    <path fill="none" stroke="#000" stroke-linejoin="round" stroke-width="2"
+        d="M24 35.539063L24 30.999999M6.0000001 38l15.0722649.000001"
+        transform="scale(.26458)"></path>
+    <circle cx="6.35" cy="10.054" r=".661" fill="none" stroke="#000" stroke-linecap="round"
+        stroke-linejoin="round" stroke-width=".529"></circle>
+    <path fill="none" stroke="#000" stroke-width=".529"
+        d="m 9.2604166,7.9374999 c 0,0 0.7937504,0 0.7937504,-0.79375 0,-0.79375 -0.7937504,-0.79375 -0.7937504,-0.79375"></path>
+    <path fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round"
+        stroke-width=".529"
+        d="M5.8823592 2.7733536A.6614583.6614583 0 016.3499999 2.5796981.6614583.6614583 0 016.8178026 2.7735158M5.3210422 2.2121386A1.4552083 1.4552083 0 016.3499999 1.7859481 1.4552083 1.4552083 0 017.3790177 2.2121989M4.7596866 1.6509625A2.2489581 2.2489581 0 016.3499999.99219838 2.2489581 2.2489581 0 017.9401939 1.6508434"
+        transform="translate(0 .38)"></path>
+</svg>

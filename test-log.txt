@@ -1,0 +1,15 @@
+
+::group::✅ Passing tests
+✅ /home/runner/work/sooden-project/sooden-project/test/homenet_test.dart: private / shared addresses
+✅ /home/runner/work/sooden-project/sooden-project/test/newloc_test.dart: Wi-Fi name / password rules and AT escapes
+✅ /home/runner/work/sooden-project/sooden-project/test/homenet_test.dart: the panel is known by its MAC (soft-AP MAC differs in the first byte)
+✅ /home/runner/work/sooden-project/sooden-project/test/homenet_test.dart: the panel says its address on the modem (@M_IP)
+✅ /home/runner/work/sooden-project/sooden-project/test/homenet_test.dart: the panel black box (@M_DBG / @M_DBS)
+✅ /home/runner/work/sooden-project/sooden-project/test/homenet_test.dart: UPnP: external address and port mapping (718 conflict -> delete, add again)
+✅ /home/runner/work/sooden-project/sooden-project/test/newloc_test.dart: new location: phone on the panel Wi-Fi
+✅ /home/runner/work/sooden-project/sooden-project/test/newloc_test.dart: new location: panel did not answer, phone on the home Wi-Fi
+✅ /home/runner/work/sooden-project/sooden-project/test/newloc_test.dart: location settings: all three steps
+✅ /home/runner/work/sooden-project/sooden-project/test/newloc_test.dart: first run: Android version and what is needed
+::endgroup::
+
+🎉 10 tests passed.
