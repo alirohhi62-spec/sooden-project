@@ -8,6 +8,7 @@ import 'package:bms/core/utils/globals.dart';
 import 'package:bms/core/utils/loc_store.dart';
 import 'package:bms/data/data_sources/local_data_sources/database/model/location.dart';
 import 'package:bms/data/data_sources/remote_data_sources/socket/connection_requests/wrappers/connection_wraper/connection_wraper_impl.dart';
+import 'package:bms/home/add_panel.dart';
 import 'package:bms/home/home_switch.dart';
 import 'package:bms/panel12/panel12_controller.dart';
 import 'package:bms/panel12/panel12_screen.dart';
@@ -101,6 +102,41 @@ void main() {
     expect(find.text('همین پنل'), findsOneWidget);
     h.panels.clear();
     LocStore.via = '';
+    await tester.pump(const Duration(seconds: 30));
+  });
+
+  testWidgets('one panel on a modem: the bar with «+» only; it opens the add sheet with the home modem filled in', (tester) async {
+    await _setup(tester);
+    final h = HomeSwitch.instance;
+    await tester.pumpWidget(_app(Panel12TabHost(home: Container(color: Colors.white))));
+    Panel12Controller.instance.onRaw(utf8.encode(r'$MDL=SD23-a14-1.0$'));
+    h.panels.assignAll([_loc(1, 'سالن')]);
+    h.current.value = 1;
+    h.onModem.value = true;
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('switch-tab-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('switch-add')), findsOneWidget);
+    expect(find.textContaining('فقط از راه مودم'), findsNothing, reason: 'one panel: no note');
+    final add = tester.getCenter(find.byKey(const ValueKey('switch-add')));
+    final tab = tester.getCenter(find.byKey(const ValueKey('switch-tab-1')));
+    expect(add.dx < tab.dx, isTrue, reason: '«+» on the left end, apart from the tabs');
+
+    await tester.tap(find.byKey(const ValueKey('switch-add')));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(AddPanelSheet), findsOneWidget);
+    expect(find.text('افزودن پنل به «سالن»'), findsOneWidget);
+    expect(find.text('HomeNet'), findsOneWidget, reason: 'the modem of «سالن»');
+    expect(find.text('افزودن و وصل کردن به مودم'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('add-modem-edit')));
+    await tester.pump();
+    expect(find.text('رمز مودم'), findsOneWidget);
+    await tester.tap(find.text('افزودن و وصل کردن به مودم'));
+    await tester.pump();
+    expect(find.textContaining('اسم این پنل را بنویسید'), findsOneWidget, reason: 'no name: nothing is started');
+    Get.back();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(AddPanelSheet), findsNothing);
+    h.panels.clear();
     await tester.pump(const Duration(seconds: 30));
   });
 }

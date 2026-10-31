@@ -61,7 +61,11 @@ class NewLocationLogic extends BaseLogic {
   StreamSubscription<EventBusModel>? _mSubscription;
   StreamSubscription<Result>? _mConnectionSubscription;
 
-  NewLocationLogic(this.locationToEdit) {
+  /// «+» بالای صفحه‌ی پنل: پنل تازه‌ی خانه‌ی [home]؛ بعد از اتصال به پنل، اسم و رمز مودمی که در فیلدها است خودکار به پنل می‌رود
+  final Location? home;
+  Timer? _retry;
+
+  NewLocationLogic(this.locationToEdit, {this.home}) {
     isEditMode = locationToEdit != null;
 
     _initFields(locationToEdit);
@@ -291,8 +295,23 @@ class NewLocationLogic extends BaseLogic {
 
     var subject = ConnectionRequestsImpl.instance.newLocationRequest(
         NewLocationDataModel(locationNameController.text, staticIpController.text));
-    _mConnectionSubscription = subject.listen((result) {
+    if (home == null) {
+      _mConnectionSubscription = subject.listen((result) {
+        onConnectionResult(result);
+      });
+      return;
+    }
+    // افزودن به خانه: جواب قبلی جریان (اتصال پنل فعلی) کنار گذاشته می‌شود؛ اگر درخواست در قفل ۱۰ ثانیه‌ای افتاد
+    // و جوابی نیامد، دوباره
+    isLoading = true;
+    update();
+    _mConnectionSubscription = subject.skip(subject.hasValue ? 1 : 0).listen((result) {
+      _retry?.cancel();
       onConnectionResult(result);
+    });
+    _retry?.cancel();
+    _retry = Timer(const Duration(seconds: SocketConstants.connectionRequestsDelay + 2), () {
+      if (locationToEdit == null && connError == null) checkConnection();
     });
   }
 
@@ -315,7 +334,14 @@ class NewLocationLogic extends BaseLogic {
   _onConnectedCallback(ConnectionManagerDataModel? dataModel) {
     _logger('_onConnectedCallback', 'dataModel : ${dataModel!.referenceLocation!.name}');
 
+    final m = modemNameController.text, pw = modemPasswordController.text;   // (افزودن به خانه: مودم خانه، نه آنچه پنل گفت)
     _initFields(dataModel!.referenceLocation);
+    final h = home;
+    if (h != null && locationToEdit != null && h.id != locationToEdit!.id) {
+      modemNameController.text = m;
+      modemPasswordController.text = pw;
+      setModemConfig();
+    }
   }
 
   _onFailedCallback(ConnectionErrorCode? reason) {
@@ -402,6 +428,7 @@ class NewLocationLogic extends BaseLogic {
     locationNameController.dispose();
     _mSubscription?.cancel(); // Cancel the subscription
     _mConnectionSubscription?.cancel(); // Cancel the subscription
+    _retry?.cancel();
     super.onClose();
   }
 

@@ -29,8 +29,10 @@ class PanelSwitcher extends StatelessWidget {
   final SwitcherStyle style;
   final void Function(HomePanel p) onPick;
   final String? note;       // مثلاً «گوشی به وای‌فای خود پنل وصل است؛ بقیه فقط از راه مودم خانه»
+  final VoidCallback? onAdd; // «+» در انتهای چپ نوار، جدا از زبانه‌ها: افزودن پنل به همین خانه
 
-  const PanelSwitcher({super.key, required this.panels, required this.current, required this.onPick, this.style = SwitcherStyle.tabs, this.note});
+  const PanelSwitcher(
+      {super.key, required this.panels, required this.current, required this.onPick, this.style = SwitcherStyle.tabs, this.note, this.onAdd});
 
   HomePanel? get _cur => panels.firstWhereOrNull((p) => p.id == current);
 
@@ -42,13 +44,14 @@ class PanelSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (panels.length < 2) return const SizedBox.shrink();
+    if (panels.length < (onAdd == null ? 2 : 1)) return const SizedBox.shrink();
+    final bar = style == SwitcherStyle.tabs || (style == SwitcherStyle.auto && panels.length <= 4) ? _tabs() : _dropdown(context);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          style == SwitcherStyle.tabs || (style == SwitcherStyle.auto && panels.length <= 4) ? _tabs() : _dropdown(context),
+          onAdd == null ? bar : Row(children: [Expanded(child: bar), const SizedBox(width: 8), _add()]),
           if (note != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -58,6 +61,26 @@ class PanelSwitcher extends StatelessWidget {
       ),
     );
   }
+
+  /// گرد و کوچک با علامت + تنها: شکلش با زبانه فرق دارد تا با یک پنل اشتباه نشود
+  Widget _add() => Semantics(
+        button: true,
+        label: 'افزودن پنل به این خانه',
+        child: GestureDetector(
+          key: const ValueKey('switch-add'),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onAdd!();
+          },
+          child: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _red.withValues(alpha: .75))),
+            child: const CustomPaint(size: Size(14, 14), painter: _Plus()),
+          ),
+        ),
+      );
 
   Widget _tabs() {
     return SingleChildScrollView(
@@ -212,6 +235,23 @@ class _Chevron extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     c.drawPath(Path()..moveTo(1, 1)..lineTo(s.width / 2, s.height - 1)..lineTo(s.width - 1, 1), p);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+/// the + of the add button (drawn: no icon font needed)
+class _Plus extends CustomPainter {
+  const _Plus();
+  @override
+  void paint(Canvas c, Size s) {
+    final p = Paint()
+      ..color = const Color(0xFFFF8A96)
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    c.drawLine(Offset(s.width / 2, 1), Offset(s.width / 2, s.height - 1), p);
+    c.drawLine(Offset(1, s.height / 2), Offset(s.width - 1, s.height / 2), p);
   }
 
   @override

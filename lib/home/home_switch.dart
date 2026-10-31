@@ -8,6 +8,7 @@ import '../data/data_sources/remote_data_sources/socket/connection_keeper.dart';
 import '../data/data_sources/remote_data_sources/socket/connection_requests/connection_requests_impl.dart';
 import '../data/repositories/location_repository.dart';
 import '../panel12/panel12_controller.dart';
+import 'add_panel.dart';
 import 'panel_switcher.dart';
 
 /// پنل‌های یک خانه: مکان‌هایی که مودمشان یکی است. بالای صفحه‌ی پنل نشان داده می‌شوند و با یک لمس
@@ -68,7 +69,8 @@ class HomeSwitch extends GetxController {
     }
   }
 
-  bool get visible => panels.length >= 2;
+  /// یک پنل هم کافی است: «+» برای افزودن پنل دیگر به همین خانه
+  bool get visible => panels.isNotEmpty;
 
   /// به پنل دیگر همین خانه
   Future<void> switchTo(int id) async {
@@ -86,9 +88,19 @@ class HomeSwitch extends GetxController {
       Future.delayed(const Duration(seconds: 2), () => switching.value = false);
     }
   }
+
+  /// پنل تازه‌ای که با «+» اضافه شد (هنوز در فهرست نیست): همان را باز کن
+  Future<void> openNew(Location l) async {
+    if (l.id == null) return;
+    setLast((l.modemName ?? '').trim(), l.id!);
+    await Get.find<LocationRepository>().updateSelectedLocation(l.id!);
+    Panel12Controller.instance.prepareSwitch();
+    ConnectionRequestsImpl.instance.forceReconnect();
+    await refreshList();
+  }
 }
 
-/// نوار بالای صفحه‌ی پنل (فقط وقتی این خانه بیش از یک پنل دارد)
+/// نوار بالای صفحه‌ی پنل: پنل‌های این خانه و «+» برای افزودن (فقط وقتی مکان مودم دارد)
 class HomeSwitchBar extends StatelessWidget {
   const HomeSwitchBar({super.key});
 
@@ -113,7 +125,10 @@ class HomeSwitchBar extends StatelessWidget {
           panels: list,
           current: h.current.value,
           style: SwitcherStyle.auto,
-          note: !h.onModem.value
+          onAdd: cur == null ? null : () => AddPanelSheet.open(cur),
+          note: h.panels.length < 2
+              ? null
+              : !h.onModem.value
               ? (onPanelWifi
                   ? 'گوشی به وای‌فای خود «${cur?.name ?? ''}» وصل است؛ بقیه‌ی پنل‌ها فقط از راه مودم خانه'
                   : 'بقیه‌ی پنل‌های این خانه فقط وقتی گوشی روی وای‌فای مودم خانه است')
