@@ -1,0 +1,7 @@
+
+::group::✅ Passing tests
+✅ in range of a panel: picked by its Wi-Fi, its modem, or its BSSID
+✅ out of range of all: which location?
+::endgroup::
+
+🎉 2 tests passed.
