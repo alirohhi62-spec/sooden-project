@@ -1,0 +1,6 @@
+
+::group::✅ Passing tests
+✅ alarm 12-pole + 6-pole crystal: two panel tabs
+::endgroup::
+
+🎉 1 test passed.
