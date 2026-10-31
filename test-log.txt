@@ -1,0 +1,17 @@
+
+::group::✅ Passing tests
+✅ e12
+✅ e12 with scenarios on 9..12
+✅ 6-pole
+✅ 1-pole as panel 2
+✅ 2-pole as panel 2
+✅ 3-pole + master as panel 2
+✅ 4-pole as panel 2
+✅ 14-pole alarm (tab names)
+✅ SIM panel + 4-pole: panel 2
+✅ SIM panel + 6-pole: panel 2
+✅ 6-pole as panel 2 of a 14-pole alarm
+✅ SIM panel as panel 2 of a 12-pole alarm
+::endgroup::
+
+🎉 12 tests passed.
