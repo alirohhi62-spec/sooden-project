@@ -1,5 +1,7 @@
 // چند مکان: انتخاب خودکار مکان از روی وای‌فای گوشی، و صفحه‌ی «به کدام مکان وصل شویم؟»
 // flutter test --update-goldens test/loc_test.dart  ->  test/goldens/loc_*.png
+import 'dart:io';
+
 import 'package:bms/data/data_sources/local_data_sources/database/model/location.dart';
 import 'package:bms/data/data_sources/remote_data_sources/socket/connection_requests/wrappers/connection_wraper/connection_wraper_impl.dart';
 import 'package:bms/presentation/widgets/location_picker.dart';
@@ -7,12 +9,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 final home = Location(id: 1, name: 'منزل', panelWifiName: 'sooden-A1B2', mac: '5c:cf:7f:a1:b2:c3', modemName: 'TP-Link_Home', staticIp: '5.160.20.11');
 final villa = Location(id: 2, name: 'ویلا', panelWifiName: 'sooden-77F0', mac: '84:f3:eb:77:f0:12', modemName: 'Villa@Net');
 final shop = Location(id: 3, name: 'مغازه', panelWifiName: 'sooden-0C9D', mac: '48:3f:da:0c:9d:44', staticIp: '94.182.7.30');
 
 void main() {
+  /* matchLocation reads the panel used last on a modem (HomeSwitch, phone storage): its own storage folder */
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/path_provider'), (call) async => (Directory('/tmp/sooden_t_loc')..createSync(recursive: true)).path);
+    await GetStorage.init();
+  });
+
   test('in range of a panel: picked by its Wi-Fi, its modem, or its BSSID', () {
     final all = [home, villa, shop];
     expect(ConnectionWrapperImpl.matchLocation(all, 'sooden-77F0', '')?.id, 2);

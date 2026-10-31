@@ -3,6 +3,7 @@
 // عکس‌های صفحه در test/goldens/ ساخته می‌شوند (flutter test --update-goldens).
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:bms/core/utils/globals.dart';
 import 'package:bms/panel12/panel12_controller.dart';
@@ -14,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 Future<void> _loadFonts() async {
   final loader = FontLoader('dana')
@@ -49,7 +51,15 @@ Future<void> _setup(WidgetTester tester) async {
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+  final m = tester.binding.defaultBinaryMessenger;
+  m.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+  /* (the phone's storage and SMS: its own storage folder, tests run side by side) */
+  m.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (call) async => (Directory('/tmp/sooden_t_panel12')..createSync(recursive: true)).path);
+  await tester.runAsync(() async {                       // (read in real time, not on the test clock; a new phone each test)
+    await GetStorage.init();
+    await GetStorage().erase();
+  });
+  m.setMockMethodCallHandler(const MethodChannel('sooden/sms_in'), (call) async => null);
 }
 
 void main() {

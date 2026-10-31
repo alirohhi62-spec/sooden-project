@@ -3,6 +3,7 @@
 // flutter test --update-goldens test/panels_test.dart  ->  test/goldens/panels_*.png
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:bms/core/utils/globals.dart';
 import 'package:bms/panel12/panel12_controller.dart';
@@ -13,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 Future<void> _loadFonts() async {
   final loader = FontLoader('dana')
@@ -43,7 +45,8 @@ Future<void> _setup(WidgetTester tester) async {
   addTearDown(tester.view.reset);
   final m = tester.binding.defaultBinaryMessenger;
   m.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
-  m.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (call) async => '/tmp');
+  m.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (call) async => (Directory('/tmp/sooden_t_panels')..createSync(recursive: true)).path);   // (its own storage file: tests run side by side)
+  await tester.runAsync(() => GetStorage.init());   // (the storage file read in real time, not on the test clock)
   m.setMockMethodCallHandler(const MethodChannel('sooden/sms_in'), (call) async => null);
 }
 
@@ -83,6 +86,7 @@ void main() {
     s.demo.value = true;
     s.updateLink();
     c.onRaw(utf8.encode(r'$LAY#LLLLLLLLLLLLLLLSSSSXHMEUWUW$$K#0000005$$AL#0#0#0$$SIM#1#4#2#-$'));
+    await tester.pump();                                   // (the page is built on the next frame)
     await tester.runAsync(() async {
       await precacheImage(const AssetImage('assets/images/sim12_panel.jpg'), tester.element(find.byType(Sim12Screen)));
     });

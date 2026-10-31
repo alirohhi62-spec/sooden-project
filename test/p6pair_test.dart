@@ -2,6 +2,7 @@
 // flutter test --update-goldens test/p6pair_test.dart  ->  test/goldens/p6pair_*.png
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:bms/core/utils/globals.dart';
 import 'package:bms/panel12/panel12_controller.dart';
@@ -11,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 Future<void> _loadFonts() async {
   final loader = FontLoader('dana')
@@ -42,7 +44,8 @@ void main() {
     addTearDown(tester.view.reset);
     final m = tester.binding.defaultBinaryMessenger;
     m.setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
-    m.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (call) async => '/tmp');
+    m.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (call) async => (Directory('/tmp/sooden_t_p6pair')..createSync(recursive: true)).path);   // (its own storage file: tests run side by side)
+    await tester.runAsync(() => GetStorage.init());   // (the storage file read in real time, not on the test clock)
     m.setMockMethodCallHandler(const MethodChannel('sooden/sms_in'), (call) async => null);
     final c = Panel12Controller.instance;
     final s = Sd23Controller.instance;

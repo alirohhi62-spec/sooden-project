@@ -177,6 +177,7 @@ void main() {
     expect(find.byType(Sd23Screen), findsNothing);
     expect(find.byType(Panel12Screen), findsOneWidget);
 
+    Sd23Controller.instance.clearForSwitch();          // (the 1-minute check of pending phone scenarios stops)
     await tester.pump(const Duration(seconds: 30)); // زمان‌سنج‌ها تمام شوند
   });
 
