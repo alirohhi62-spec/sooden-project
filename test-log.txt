@@ -1,0 +1,6 @@
+
+::group::✅ Passing tests
+✅ SIM panel + 4-pole: two panel tabs
+::endgroup::
+
+🎉 1 test passed.
