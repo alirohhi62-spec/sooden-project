@@ -1,0 +1,20 @@
+
+::group::✅ Passing tests
+✅ 01 RF-12 (old 12-key)
+✅ 02 SIM panel
+✅ 03 a14
+✅ 04 a12
+✅ 05 a10
+✅ 06 a8
+✅ 07 a6
+✅ 08 ac
+✅ 09 ac6
+✅ 10 p20
+✅ 11 p14
+✅ 12 pc
+✅ 13 e12
+✅ 14 p6
+✅ 15 four-pole as panel 2 (next to a 14-pole alarm panel)
+::endgroup::
+
+🎉 15 tests passed.
