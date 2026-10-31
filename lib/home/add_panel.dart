@@ -285,7 +285,7 @@ class _AddPanelSheetState extends State<AddPanelSheet> {
         Text(
             conn
                 ? (l.connError == 'پنل جواب نداد'
-                    ? 'گوشی را به وای‌فای پنل تازه (⁦sooden-...⁩) وصل کنید، نزدیک پنل بروید و «دوباره» را بزنید.'
+                    ? 'گوشی را به وای‌فای پنل تازه (\u2066sooden-...\u2069) وصل کنید، نزدیک پنل بروید و «دوباره» را بزنید.'
                     : l.connError!)
                 : l.modemMsg!,
             style: const TextStyle(color: _text, fontSize: 13, height: 1.7)),

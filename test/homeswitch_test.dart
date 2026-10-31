@@ -122,7 +122,8 @@ void main() {
     expect(add.dx < tab.dx, isTrue, reason: '«+» on the left end, apart from the tabs');
 
     await tester.tap(find.byKey(const ValueKey('switch-add')));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));   // (the sheet slides up: the first frame starts it)
     expect(find.byType(AddPanelSheet), findsOneWidget);
     expect(find.text('افزودن پنل به «سالن»'), findsOneWidget);
     expect(find.text('HomeNet'), findsOneWidget, reason: 'the modem of «سالن»');
@@ -134,6 +135,7 @@ void main() {
     await tester.pump();
     expect(find.textContaining('اسم این پنل را بنویسید'), findsOneWidget, reason: 'no name: nothing is started');
     Get.back();
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.byType(AddPanelSheet), findsNothing);
     h.panels.clear();
